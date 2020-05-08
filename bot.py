@@ -1,9 +1,6 @@
 # An example bot for the Hanabi Live website
 # Written by Zamiel
 
-# Notes:
-# - The authentication scheme will change at some point in the future to become more secure
-
 # Imports
 import hashlib
 import json
@@ -14,7 +11,9 @@ import requests
 import websocket
 
 # Constants
-use_localhost = True # True if running a local version of Hanabi Live, false to use the production site
+# "use_localhost" should be true if running a local version of Hanabi Live,
+# false if using the real website
+use_localhost = True
 
 # Authenticate, login to the Hanabi Live WebSocket server, and run forever
 def main():
@@ -29,9 +28,6 @@ def main():
         print('error: "HANABI_PASSWORD" is blank in the ".env" file')
         sys.exit(1)
 
-    # Get the SHA256 of the password
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
-
     # Get an authenticated cookie by POSTing to the login handler
     protocol = 'http'
     host = 'localhost'
@@ -43,7 +39,9 @@ def main():
     print('Authenticating to "' + url + '" with a username of "' + username + '".')
     resp = requests.post(url, {
         'username': username,
-        'password': password_hash,
+        'password': password,
+        # This is normally the version of the JavaScript client,
+        # but it will also accept "bot" as a valid version
         'version': 'bot',
     })
 
@@ -85,7 +83,7 @@ class HanabiClient:
         self.turn = -1
 
         # Initialize the Hanabi Live command handlers (for the lobby)
-        self.commandHandlers['hello'] = self.hello
+        self.commandHandlers['welcome'] = self.welcome
         self.commandHandlers['chat'] = self.chat
         self.commandHandlers['table'] = self.table
         self.commandHandlers['tableList'] = self.table_list
@@ -162,8 +160,8 @@ class HanabiClient:
     # Hanabi Live Command Handlers (Lobby)
     # ------------------------------------
 
-    def hello(self, data):
-        # The "hello" message is the first message that the server sends us
+    def welcome(self, data):
+        # The "welcome" message is the first message that the server sends us
         # once we have established a connection
         # It contains our username, settings, and so forth
         self.username = data['username']
@@ -215,8 +213,13 @@ class HanabiClient:
         del self.tables[data['id']]
 
     def table_start(self, data):
-        # Request the information for the game that is currently starting
-        self.send('hello', {})
+        # The server has told us that a game that we are in is starting
+        # So, the next step is to request some high-level information about the game
+        # (e.g. number of players)
+        # The server will respond with an "init" command
+        self.send('getGameInfo1', {
+            'tableID': data['tableID']),
+        })
 
     # -----------------------------------
     # Hanabi Live Command Handlers (Game)
@@ -245,9 +248,13 @@ class HanabiClient:
             self.play_stacks.append([])
         self.discard_pile = []
 
-        # Tell the server that we have "loaded the UI" 😂
-        # After that, it will send us the game history so far
-        self.send('ready', {})
+        # At this point, the JavaScript client would have enough information to load and display the
+        # game UI; for our purposes, we do not need to load a UI, so we can just jump directly to
+        # the next step
+        # Now, we request the specific actions that have taken place thus far in the game
+        self.send('getGameInfo2', {
+            'tableID': data['tableID'],
+        })
 
     def notify(self, data):
         print('debug: got notify "' + data['type'] + '"')
