@@ -74,6 +74,7 @@ class HanabiClient:
         self.ws = None
 
         # Initialize all class variables (for the game state)
+        self.table_id = -1
         self.clue_tokens = -1
         self.discard_pile = []
         self.hands = []
@@ -186,20 +187,23 @@ class HanabiClient:
                 self.chat_reply('You must provide the table name. e.g. /join wending invigoratingly condescend', data['who'])
                 return
 
+            if self.table_id != -1:
+                self.chat_reply('I am currently in an ongoing game, please wait until the current game is over.', data['who'])
+                return
+
             # Find the table ID for this name
             table_name = result[1]
-            table_id = -1
             for table in self.tables.values():
                 if table['name'] == table_name:
-                    table_id = table['id']
+                    self.table_id = table['id']
                     break
-            if table_id == -1:
+            if self.table_id == -1:
                 self.chat_reply('The table "' + table_name + '" does not exist.', data['who'])
                 return
 
             # Join it
             self.send('tableJoin', {
-                'tableID': table_id,
+                'tableID': self.table_id,
             })
 
     def table(self, data):
@@ -210,6 +214,8 @@ class HanabiClient:
             self.table(data)
 
     def table_gone(self, data):
+        if self.table_id == data['id']:
+            self.table_id = -1
         del self.tables[data['id']]
 
     def table_start(self, data):
@@ -217,8 +223,9 @@ class HanabiClient:
         # So, the next step is to request some high-level information about the game
         # (e.g. number of players)
         # The server will respond with an "init" command
+        self.table_id = data['tableID']
         self.send('getGameInfo1', {
-            'tableID': data['tableID'],
+            'tableID': self.table_id,
         })
 
     # -----------------------------------
@@ -306,6 +313,7 @@ class HanabiClient:
                 # See "actionType" and "clueType" constants at:
                 # https://github.com/Zamiell/hanabi-live/blob/master/src/constants.go
                 # TODO make this an enum
+                'tableID': self.table_id,
                 'type': 0,
                 'target': target_index,
                 'clue': {
@@ -320,6 +328,7 @@ class HanabiClient:
                 # See "actionType" constants at:
                 # https://github.com/Zamiell/hanabi-live/blob/master/src/constants.go
                 # TODO make this an enum
+                'tableID': self.table_id,
                 'type': 2,
                 'target': oldest_card['order'],
             })
