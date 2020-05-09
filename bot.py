@@ -59,7 +59,7 @@ def main():
             break
     if cookie == '':
         print('Failed to parse the cookie from the authentication response headers:')
-        ptint(resp.headers)
+        print(resp.headers)
         sys.exit(1)
 
     HanabiClient(cookie)
