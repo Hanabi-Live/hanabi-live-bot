@@ -218,7 +218,7 @@ class HanabiClient:
         # (e.g. number of players)
         # The server will respond with an "init" command
         self.send('getGameInfo1', {
-            'tableID': data['tableID']),
+            'tableID': data['tableID'],
         })
 
     # -----------------------------------
