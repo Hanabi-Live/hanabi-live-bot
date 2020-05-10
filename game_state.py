@@ -6,6 +6,7 @@ from constants import MAX_CLUE_NUM
 # (e.g. a card object should contain the positive and negative clues that are
 # "on" the card)
 class GameState:
+    replaying_past_actions = True
     clue_tokens = MAX_CLUE_NUM
     players = []
     our_index = -1
