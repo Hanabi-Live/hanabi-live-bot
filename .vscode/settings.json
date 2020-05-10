@@ -1,0 +1,18 @@
+// These are Visual Studio Code settings that should apply to this particular
+// repository
+{
+  // PEP-8 specifies a maximum line length of 79 characters
+  "editor.rulers": [79],
+
+  // Linux line endings are used in this project
+  "files.eol": "\n",
+
+  // Use "yapf" to automatically format Python files
+  // https://github.com/google/yapf
+  "python.formatting.provider": "yapf",
+
+  // Automatically run the "yapf" formatter when a Python file is saved
+  "[python]": {
+    "editor.formatOnSave": true,
+  }
+}
