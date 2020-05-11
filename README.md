@@ -1,6 +1,6 @@
 # hanabi-live-bot
 
-An example bot for the Hanabi Live website written in Python.
+An example reference bot for the [Hanabi Live website](https://github.com/Zamiell/hanabi-live) written in [Python 3](https://www.python.org/).
 
 <br />
 
