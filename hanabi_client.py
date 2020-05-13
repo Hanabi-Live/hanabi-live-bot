@@ -32,6 +32,7 @@ class HanabiClient:
         self.commandHandlers['init'] = self.init
         self.commandHandlers['gameAction'] = self.game_action
         self.commandHandlers['gameActionList'] = self.game_action_list
+        self.commandHandlers['yourTurn'] = self.your_turn
         self.commandHandlers['databaseID'] = self.database_id
 
         # Start the WebSocket client
@@ -233,9 +234,6 @@ class HanabiClient:
         for action in data['list']:
             self.handle_action(action, data['tableID'])
 
-        state = self.games[data['tableID']]
-        state.replaying_past_actions = False
-
     def handle_action(self, data, table_id):
         print('debug: got a game action of "' + data['type'] + '" for table ' +
               str(table_id))
@@ -281,10 +279,13 @@ class HanabiClient:
 
         elif data['type'] == 'turn':
             state.turn = data['num']
-            if (not state.replaying_past_actions
-                    and data['who'] == state.our_index):
-                # It is our turn, so take an action
-                self.decide_action(table_id)
+
+    def your_turn(self, data):
+        # The "yourTurn" command is only sent when it is our turn
+        # (in the present, as opposed to recieving a "game_action" message
+        # about a turn in the past)
+        # Query the AI functions to see what to do
+        self.decide_action(data['tableID'])
 
     def database_id(self, data):
         # Games are transformed into shared replays after they are copmleted
