@@ -1,6 +1,6 @@
 # hanabi-live-bot
 
-An example reference bot for the [Hanabi Live website](https://github.com/Zamiell/hanabi-live) written in [Python 3](https://www.python.org/).
+An example reference bot for the [Hanab Live website](https://github.com/Zamiell/hanabi-live) written in [Python 3](https://www.python.org/).
 
 <br />
 
@@ -13,7 +13,7 @@ An example reference bot for the [Hanabi Live website](https://github.com/Zamiel
   * `vim .env`
 * Run it:
   * `python main.py`
-* In a browser, log on to Hanabi Live and start a new table.
+* In a browser, log on to the website and start a new table.
 * In the pre-game chat window, send a private message to the bot in order to get it to join you:
   * `/msg [username] /join`
 * Then, start the game and play!

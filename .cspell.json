@@ -1,0 +1,17 @@
+{
+    "version": "0.1",
+    "language": "en",
+    "dictionaries": [
+        "en_US",
+        "companies",
+        "softwareTerms",
+        "html"
+    ],
+    "words": [
+        "dotenv",
+        "getenv",
+        "hanab",
+        "hanabi",
+        "zamiel"
+    ]
+}

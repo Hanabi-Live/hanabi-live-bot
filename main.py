@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# An example reference bot for the Hanabi Live website
+# An example reference bot for the Hanab Live website
 # Written by Zamiel
 
 # The "dotenv" module does not work in Python 2
@@ -20,7 +20,7 @@ import requests
 from hanabi_client import HanabiClient
 
 
-# Authenticate, login to the Hanabi Live WebSocket server, and run forever
+# Authenticate, login to the WebSocket server, and run forever
 def main():
     # Load environment variables from the ".env" file
     dotenv.load_dotenv()
@@ -56,7 +56,7 @@ def main():
     else:
         protocol = 'https'
         ws_protocol = 'wss'
-        host = 'hanabi.live'
+        host = 'hanab.live'
     path = '/login'
     ws_path = '/ws'
     url = protocol + '://' + host + path

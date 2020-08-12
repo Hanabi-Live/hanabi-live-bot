@@ -18,7 +18,7 @@ class HanabiClient:
         self.ws = None
         self.games = {}
 
-        # Initialize the Hanabi Live command handlers (for the lobby)
+        # Initialize the website command handlers (for the lobby)
         self.commandHandlers['welcome'] = self.welcome
         self.commandHandlers['warning'] = self.warning
         self.commandHandlers['error'] = self.error
@@ -28,7 +28,7 @@ class HanabiClient:
         self.commandHandlers['tableGone'] = self.table_gone
         self.commandHandlers['tableStart'] = self.table_start
 
-        # Initialize the Hanabi Live command handlers (for the game)
+        # Initialize the website command handlers (for the game)
         self.commandHandlers['init'] = self.init
         self.commandHandlers['gameAction'] = self.game_action
         self.commandHandlers['gameActionList'] = self.game_action_list
@@ -59,7 +59,7 @@ class HanabiClient:
         # https://github.com/Zamiell/hanabi-live/blob/master/src/websocketMessage.go
         result = message.split(' ', 1)  # Split it into two things
         if len(result) != 1 and len(result) != 2:
-            print('error: recieved an invalid WebSocket message:')
+            print('error: received an invalid WebSocket message:')
             print(message)
             return
 
@@ -91,9 +91,9 @@ class HanabiClient:
     def websocket_open(self, ws):
         print('Successfully established WebSocket connection.')
 
-    # ------------------------------------
-    # Hanabi Live Command Handlers (Lobby)
-    # ------------------------------------
+    # --------------------------------
+    # Website Command Handlers (Lobby)
+    # --------------------------------
 
     def welcome(self, data):
         # The "welcome" message is the first message that the server sends us
@@ -178,9 +178,9 @@ class HanabiClient:
             'tableID': data['tableID'],
         })
 
-    # -----------------------------------
-    # Hanabi Live Command Handlers (Game)
-    # -----------------------------------
+    # -------------------------------
+    # Website Command Handlers (Game)
+    # -------------------------------
 
     def init(self, data):
         # At the beginning of the game, the server sends us some high-level
@@ -207,7 +207,7 @@ class HanabiClient:
         # Initialize the play stacks
         '''
         This is hard coded to 5 because there 5 suits in a no variant game
-        Hanabi Live supports variants that have 3, 4, and 6 suits
+        The website supports variants that have 3, 4, and 6 suits
         TODO This code should compare "data['variant']" to the "variants.json"
         file in order to determine the correct amount of suits
         https://raw.githubusercontent.com/Zamiell/hanabi-live/master/public/js/src/data/variants.json
@@ -225,11 +225,11 @@ class HanabiClient:
         })
 
     def game_action(self, data):
-        # We just recieved a new action for an ongoing game
+        # We just received a new action for an ongoing game
         self.handle_action(data['action'], data['tableID'])
 
     def game_action_list(self, data):
-        # We just recieved a list of all of the actions that have occurred thus
+        # We just received a list of all of the actions that have occurred thus
         # far in the game
         for action in data['list']:
             self.handle_action(action, data['tableID'])
@@ -282,13 +282,13 @@ class HanabiClient:
 
     def your_turn(self, data):
         # The "yourTurn" command is only sent when it is our turn
-        # (in the present, as opposed to recieving a "game_action" message
+        # (in the present, as opposed to receiving a "game_action" message
         # about a turn in the past)
         # Query the AI functions to see what to do
         self.decide_action(data['tableID'])
 
     def database_id(self, data):
-        # Games are transformed into shared replays after they are copmleted
+        # Games are transformed into shared replays after they are completed
         # The server sends a "databaseID" message when the game has ended
         # Use this as a signal to leave the shared replay
         self.send('tableUnattend', {
