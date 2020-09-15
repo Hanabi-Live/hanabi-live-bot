@@ -3,9 +3,9 @@
 # An example reference bot for the Hanab Live website
 # Written by Zamiel
 
-# The "dotenv" module does not work in Python 2
 import sys
 
+# The "dotenv" module does not work in Python 2
 if sys.version_info < (3, 0):
     print("This script requires Python 3.x.")
     sys.exit(1)
@@ -99,7 +99,7 @@ def main():
             cookie = header[1]
             break
     if cookie == "":
-        print("Failed to parse the cookie from the authentication response " "headers:")
+        print("Failed to parse the cookie from the authentication response headers:")
         print(resp.headers)
         sys.exit(1)
 

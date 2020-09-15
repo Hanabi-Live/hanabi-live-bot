@@ -53,7 +53,7 @@ class HanabiClient:
 
     def websocket_message(self, ws, message):
         # WebSocket messages from the server come in the format of:
-        # commandName {"data1":"data2"}
+        # commandName {"field_name":"value"}
         # For more information, see:
         # https://github.com/Zamiell/hanabi-live/blob/master/src/websocketMessage.go
         result = message.split(" ", 1)  # Split it into two things
@@ -126,7 +126,8 @@ class HanabiClient:
         if command == "join":
             self.chat_join(data)
         else:
-            self.chat_reply("That is not a valid command.", data["who"])
+            msg = "That is not a valid command."
+            self.chat_reply(msg, data["who"])
 
     def chat_join(self, data):
         # Someone sent a private message to the bot and requested that we join
@@ -140,10 +141,7 @@ class HanabiClient:
 
             if data["who"] in table["players"]:
                 if len(table["players"]) == 6:
-                    msg = (
-                        "Your game is full. Please make room for me before "
-                        "requesting that I join your game."
-                    )
+                    msg = "Your game is full. Please make room for me before requesting that I join your game."
                     self.chat_reply(msg, data["who"])
                     return
 
@@ -151,11 +149,8 @@ class HanabiClient:
                 break
 
         if table_id is None:
-            self.chat_reply(
-                "Please create a table first before requesting "
-                "that I join your game.",
-                data["who"],
-            )
+            msg = "Please create a table first before requesting that I join your game."
+            self.chat_reply(msg, data["who"])
             return
 
         self.send(
@@ -222,7 +217,7 @@ class HanabiClient:
         # load and display the game UI; for our purposes, we do not need to
         # load a UI, so we can just jump directly to the next step
         # Now, we request the specific actions that have taken place thus far
-        # in the game
+        # in the game (which will come in a "gameActionList")
         self.send(
             "getGameInfo2",
             {
@@ -263,10 +258,7 @@ class HanabiClient:
 
     def handle_action(self, data, table_id):
         print(
-            'debug: got a game action of "'
-            + data["type"]
-            + '" for table '
-            + str(table_id)
+            'debug: got a game action of "%s" for table %d' % (data["type"], table_id)
         )
 
         # Local variables
@@ -284,23 +276,25 @@ class HanabiClient:
             )
 
         elif data["type"] == "play":
-            seat = data["which"]["index"]
+            player_index = data["which"]["playerIndex"]
             order = data["which"]["order"]
-            card = self.remove_card_from_hand(state, seat, order)
+            card = self.remove_card_from_hand(state, player_index, order)
             if card is not None:
                 # TODO Add the card to the play stacks
                 pass
 
         elif data["type"] == "discard":
-            seat = data["which"]["index"]
+            player_index = data["which"]["playerIndex"]
             order = data["which"]["order"]
-            card = self.remove_card_from_hand(state, seat, order)
+            card = self.remove_card_from_hand(state, player_index, order)
             if card is not None:
-                # TODO Add the card to the play stacks
+                # TODO Add the card to the discard stacks
                 pass
 
             # Discarding adds a clue
-            if not data["failed"]:  # Misplays are represented as discards
+            # But misplays are represented as discards,
+            # and misplays do not grant a clue
+            if not data["failed"]:
                 state.clue_tokens += 1
 
         elif data["type"] == "clue":
@@ -308,9 +302,17 @@ class HanabiClient:
             state.clue_tokens -= 1
 
             # TODO We might also want to update the state of cards that are
-            # "touched" by the clue
+            # "touched" by the clue so that we can keep track of the positive
+            # and negative information "on" the card
 
         elif data["type"] == "turn":
+            # A turn is comprised of one or more game actions
+            # (e.g. play + draw)
+            # The turn action will be the final thing sent on a turn,
+            # which also includes the index of the new current player
+            # TODO: this action may be removed from the server in the future
+            # since the client is expected to calculate the turn on its own
+            # from the actions
             state.turn = data["num"]
             state.current_player_index = data["currentPlayerIndex"]
 
@@ -395,9 +397,8 @@ class HanabiClient:
         self.ws.send(command + " " + json.dumps(data))
         print('debug: sent command "' + command + '"')
 
-    # "seat" is the index of the player
-    def remove_card_from_hand(self, state, seat, order):
-        hand = state.hands[seat]
+    def remove_card_from_hand(self, state, player_index, order):
+        hand = state.hands[player_index]
         card_index = -1
         for i in range(len(hand)):
             card = hand[i]
@@ -406,7 +407,7 @@ class HanabiClient:
         if card_index == -1:
             print(
                 "error: unable to find card with order " + str(order) + " in"
-                "the hand of player " + str(seat)
+                "the hand of player " + str(player_index)
             )
             return None
         card = hand[card_index]
