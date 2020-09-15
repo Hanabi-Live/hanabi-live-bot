@@ -173,7 +173,7 @@ class HanabiClient:
             self.table(data)
 
     def table_gone(self, data):
-        del self.tables[data["id"]]
+        del self.tables[data["tableID"]]
 
     def table_start(self, data):
         # The server has told us that a game that we are in is starting
@@ -251,6 +251,15 @@ class HanabiClient:
 
         if state.current_player_index == state.our_player_index:
             self.decide_action(data["tableID"])
+
+        # Let the server know that we have finished "loading the UI"
+        # (so that our name does not appear as red / disconnected)
+        self.send(
+            "loaded",
+            {
+                "tableID": data["tableID"],
+            },
+        )
 
     def handle_action(self, data, table_id):
         print(
