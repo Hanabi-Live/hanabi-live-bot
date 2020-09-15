@@ -237,7 +237,7 @@ class HanabiClient:
         # We just received a new action for an ongoing game
         self.handle_action(data["action"], data["tableID"])
 
-        if state.current_player_index == state.our_index:
+        if state.current_player_index == state.our_player_index:
             self.decide_action(data["tableID"])
 
     def game_action_list(self, data):
@@ -249,7 +249,7 @@ class HanabiClient:
         for action in data["list"]:
             self.handle_action(action, data["tableID"])
 
-        if state.current_player_index == state.our_index:
+        if state.current_player_index == state.our_player_index:
             self.decide_action(data["tableID"])
 
     def handle_action(self, data, table_id):
@@ -336,7 +336,7 @@ class HanabiClient:
             # so give a rank clue to the next person's slot 1 card
 
             # Target the next player
-            target_index = state.our_index + 1
+            target_index = state.our_player_index + 1
             if target_index > len(state.players) - 1:
                 target_index = 0
 
@@ -356,7 +356,7 @@ class HanabiClient:
             )
         else:
             # There are no clues available, so discard our oldest card
-            oldest_card = state.hands[state.our_index][0]
+            oldest_card = state.hands[state.our_player_index][0]
             self.send(
                 "action",
                 {
