@@ -14,3 +14,4 @@ class GameState:
     play_stacks = []
     discard_pile = []
     turn = -1
+    current_player_index = -1
