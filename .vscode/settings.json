@@ -14,5 +14,6 @@
   // Automatically run the "yapf" formatter when a Python file is saved
   "[python]": {
     "editor.formatOnSave": true,
-  }
+  },
+  "python.pythonPath": "/usr/local/bin/python3"
 }
