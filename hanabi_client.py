@@ -269,7 +269,7 @@ class HanabiClient:
             hand.append(
                 {
                     "order": data["order"],
-                    "suit": data["suit"],
+                    "suit_index": data["suitIndex"],
                     "rank": data["rank"],
                 }
             )

@@ -10,7 +10,7 @@ class GameState:
     clue_tokens = MAX_CLUE_NUM
     player_names = []
     our_player_index = -1
-    hands = []
+    hands = []  # An array containing card objects (dictionaries)
     play_stacks = []
     discard_pile = []
     turn = -1
