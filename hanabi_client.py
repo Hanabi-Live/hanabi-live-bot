@@ -346,7 +346,7 @@ class HanabiClient:
 
             # Target the next player
             target_index = state.our_player_index + 1
-            if target_index > len(state.players) - 1:
+            if target_index > len(state.player_names) - 1:
                 target_index = 0
 
             # Cards are added oldest to newest,
