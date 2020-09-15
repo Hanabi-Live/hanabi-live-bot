@@ -232,7 +232,7 @@ class HanabiClient:
 
     def game_action(self, data):
         # Local variables
-        state = self.games[data["table_id"]]
+        state = self.games[data["tableID"]]
 
         # We just received a new action for an ongoing game
         self.handle_action(data["action"], data["tableID"])
@@ -242,7 +242,7 @@ class HanabiClient:
 
     def game_action_list(self, data):
         # Local variables
-        state = self.games[data["table_id"]]
+        state = self.games[data["tableID"]]
 
         # We just received a list of all of the actions that have occurred thus
         # far in the game
