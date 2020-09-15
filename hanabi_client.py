@@ -265,7 +265,7 @@ class HanabiClient:
 
         if data["type"] == "draw":
             # Add the newly drawn card to the player's hand
-            hand = state.hands[data["who"]]
+            hand = state.hands[data["playerIndex"]]
             hand.append(
                 {
                     "order": data["order"],
