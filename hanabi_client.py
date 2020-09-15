@@ -200,17 +200,11 @@ class HanabiClient:
         state = GameState()
         self.games[data["tableID"]] = state
 
-        state.players = data["names"]
-
-        # Find our index
-        for i in range(len(state.players)):
-            player_name = state.players[i]
-            if player_name == self.username:
-                state.our_index = i
-                break
+        state.player_names = data["playerNames"]
+        state.our_player_index = data["ourPlayerIndex"]
 
         # Initialize the hands for each player (an array of cards)
-        for i in range(len(state.players)):
+        for _ in range(len(state.player_names)):
             state.hands.append([])
 
         # Initialize the play stacks
@@ -221,7 +215,7 @@ class HanabiClient:
         file in order to determine the correct amount of suits
         https://raw.githubusercontent.com/Zamiell/hanabi-live/master/public/js/src/data/variants.json
         """
-        for i in range(5):
+        for _ in range(5):
             state.play_stacks.append([])
 
         # At this point, the JavaScript client would have enough information to

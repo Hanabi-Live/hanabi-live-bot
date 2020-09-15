@@ -23,6 +23,14 @@ from hanabi_client import HanabiClient
 
 # Authenticate, login to the WebSocket server, and run forever
 def main():
+    # Check to see if the ".env" file exists
+    env_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), ".env")
+    if not os.path.exists(env_path):
+        print(
+            'error: the ".env" file does not exist; copy the ".env_template" file to ".env" and edit the values accordingly'
+        )
+        sys.exit(1)
+
     # Load environment variables from the ".env" file
     dotenv.load_dotenv()
 
@@ -36,8 +44,7 @@ def main():
         use_localhost = False
     else:
         print(
-            'error: "USE_LOCALHOST" should be set to either "true" or '
-            '"false" in the ".env" file'
+            'error: "USE_LOCALHOST" should be set to either "true" or "false" in the ".env" file'
         )
         sys.exit(1)
 
@@ -53,10 +60,13 @@ def main():
 
     # Get an authenticated cookie by POSTing to the login handler
     if use_localhost:
+        # Assume that we are not using a certificate if we are running a local
+        # version of the server
         protocol = "http"
         ws_protocol = "ws"
         host = "localhost"
     else:
+        # The official site uses HTTPS
         protocol = "https"
         ws_protocol = "wss"
         host = "hanab.live"

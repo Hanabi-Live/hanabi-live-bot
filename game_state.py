@@ -8,8 +8,8 @@ from constants import MAX_CLUE_NUM
 class GameState:
     replaying_past_actions = True
     clue_tokens = MAX_CLUE_NUM
-    players = []
-    our_index = -1
+    player_names = []
+    our_player_index = -1
     hands = []
     play_stacks = []
     discard_pile = []
