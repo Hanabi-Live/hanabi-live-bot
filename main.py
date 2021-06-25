@@ -4,10 +4,11 @@
 # Written by Zamiel
 
 import sys
+from util import printf
 
 # The "dotenv" module does not work in Python 2
 if sys.version_info < (3, 0):
-    print("This script requires Python 3.x.")
+    printf("This script requires Python 3.x.")
     sys.exit(1)
 
 # Imports (standard library)
@@ -26,7 +27,7 @@ def main():
     # Check to see if the ".env" file exists
     env_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), ".env")
     if not os.path.exists(env_path):
-        print(
+        printf(
             'error: the ".env" file does not exist; copy the ".env_template" file to ".env" and edit the values accordingly'
         )
         sys.exit(1)
@@ -36,26 +37,26 @@ def main():
 
     use_localhost = os.getenv("USE_LOCALHOST")
     if use_localhost == "":
-        print('error: "USE_LOCALHOST" is blank in the ".env" file')
+        printf('error: "USE_LOCALHOST" is blank in the ".env" file')
         sys.exit(1)
     if use_localhost == "true":
         use_localhost = True
     elif use_localhost == "false":
         use_localhost = False
     else:
-        print(
+        printf(
             'error: "USE_LOCALHOST" should be set to either "true" or "false" in the ".env" file'
         )
         sys.exit(1)
 
     username = os.getenv("HANABI_USERNAME")
     if username == "":
-        print('error: "HANABI_USERNAME" is blank in the ".env" file')
+        printf('error: "HANABI_USERNAME" is blank in the ".env" file')
         sys.exit(1)
 
     password = os.getenv("HANABI_PASSWORD")
     if password == "":
-        print('error: "HANABI_PASSWORD" is blank in the ".env" file')
+        printf('error: "HANABI_PASSWORD" is blank in the ".env" file')
         sys.exit(1)
 
     # Get an authenticated cookie by POSTing to the login handler
@@ -74,7 +75,7 @@ def main():
     ws_path = "/ws"
     url = protocol + "://" + host + path
     ws_url = ws_protocol + "://" + host + ws_path
-    print('Authenticating to "' + url + '" with a username of "' + username + '".')
+    printf('Authenticating to "' + url + '" with a username of "' + username + '".')
     resp = requests.post(
         url,
         {
@@ -88,8 +89,8 @@ def main():
 
     # Handle failed authentication and other errors
     if resp.status_code != 200:
-        print("Authentication failed:")
-        print(resp.text)
+        printf("Authentication failed:")
+        printf(resp.text)
         sys.exit(1)
 
     # Scrape the cookie from the response
@@ -99,8 +100,8 @@ def main():
             cookie = header[1]
             break
     if cookie == "":
-        print("Failed to parse the cookie from the authentication response headers:")
-        print(resp.headers)
+        printf("Failed to parse the cookie from the authentication response headers:")
+        printf(resp.headers)
         sys.exit(1)
 
     HanabiClient(ws_url, cookie)

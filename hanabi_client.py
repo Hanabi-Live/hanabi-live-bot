@@ -7,6 +7,7 @@ import websocket
 # Imports (local application)
 from constants import ACTION
 from game_state import GameState
+from util import printf
 
 
 class HanabiClient:
@@ -35,7 +36,7 @@ class HanabiClient:
         self.commandHandlers["databaseID"] = self.database_id
 
         # Start the WebSocket client
-        print('Connecting to "' + url + '".')
+        printf('Connecting to "' + url + '".')
 
         self.ws = websocket.WebSocketApp(
             url,
@@ -58,37 +59,37 @@ class HanabiClient:
         # https://github.com/Zamiell/hanabi-live/blob/master/src/websocketMessage.go
         result = message.split(" ", 1)  # Split it into two things
         if len(result) != 1 and len(result) != 2:
-            print("error: received an invalid WebSocket message:")
-            print(message)
+            printf("error: received an invalid WebSocket message:")
+            printf(message)
             return
 
         command = result[0]
         try:
             data = json.loads(result[1])
         except:
-            print(
+            printf(
                 'error: the JSON data for the command of "' + command + '" was invalid'
             )
             return
 
         if command in self.commandHandlers:
-            print('debug: got command "' + command + '"')
+            printf('debug: got command "' + command + '"')
             try:
                 self.commandHandlers[command](data)
             except Exception as e:
-                print('error: command handler for "' + command + '" failed:', e)
+                printf('error: command handler for "' + command + '" failed:', e)
                 return
         else:
-            print('debug: ignoring command "' + command + '"')
+            printf('debug: ignoring command "' + command + '"')
 
     def websocket_error(self, ws, error):
-        print("Encountered a WebSocket error:", error)
+        printf("Encountered a WebSocket error:", error)
 
     def websocket_close(self, ws):
-        print("WebSocket connection closed.")
+        printf("WebSocket connection closed.")
 
     def websocket_open(self, ws):
-        print("Successfully established WebSocket connection.")
+        printf("Successfully established WebSocket connection.")
 
     # --------------------------------
     # Website Command Handlers (Lobby)
@@ -103,11 +104,11 @@ class HanabiClient:
     def error(self, data):
         # Either we have done something wrong,
         # or something has gone wrong on the server
-        print(data)
+        printf(data)
 
     def warning(self, data):
         # We have done something wrong
-        print(data)
+        printf(data)
 
     def chat(self, data):
         # We only care about private messages
@@ -257,7 +258,7 @@ class HanabiClient:
         )
 
     def handle_action(self, data, table_id):
-        print(
+        printf(
             'debug: got a game action of "%s" for table %d' % (data["type"], table_id)
         )
 
@@ -395,7 +396,7 @@ class HanabiClient:
         if not isinstance(data, dict):
             data = {}
         self.ws.send(command + " " + json.dumps(data))
-        print('debug: sent command "' + command + '"')
+        printf('debug: sent command "' + command + '"')
 
     def remove_card_from_hand(self, state, player_index, order):
         hand = state.hands[player_index]
@@ -405,7 +406,7 @@ class HanabiClient:
             if card["order"] == order:
                 card_index = i
         if card_index == -1:
-            print(
+            printf(
                 "error: unable to find card with order " + str(order) + " in"
                 "the hand of player " + str(player_index)
             )

@@ -12,6 +12,7 @@
         "getenv",
         "hanab",
         "hanabi",
+        "printf",
         "zamiel"
     ]
 }
