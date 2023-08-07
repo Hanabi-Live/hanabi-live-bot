@@ -1,64 +1,23 @@
 #!/usr/bin/env python
 
-# An example reference bot for the Hanab Live website
-# Written by Zamiel
-
 import sys
 from util import printf
 
-# The "dotenv" module does not work in Python 2
-if sys.version_info < (3, 0):
-    printf("This script requires Python 3.x.")
-    sys.exit(1)
-
-# Imports (standard library)
 import os
-
-# Imports (3rd-party)
-import dotenv
+import json
 import requests
 
-# Imports (local application)
 from hanabi_client import HanabiClient
 
 
 # Authenticate, login to the WebSocket server, and run forever
-def main():
+def run(username, bot_to_join):
     # Check to see if the ".env" file exists
-    env_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), ".env")
-    if not os.path.exists(env_path):
-        printf(
-            'error: the ".env" file does not exist; copy the ".env_template" file to ".env" and edit the values accordingly'
-        )
-        sys.exit(1)
+    config_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "config.json")
+    with open(config_file, "r") as f:
+        config = json.load(f)
 
-    # Load environment variables from the ".env" file
-    dotenv.load_dotenv()
-
-    use_localhost = os.getenv("USE_LOCALHOST")
-    if use_localhost == "":
-        printf('error: "USE_LOCALHOST" is blank in the ".env" file')
-        sys.exit(1)
-    if use_localhost == "true":
-        use_localhost = True
-    elif use_localhost == "false":
-        use_localhost = False
-    else:
-        printf(
-            'error: "USE_LOCALHOST" should be set to either "true" or "false" in the ".env" file'
-        )
-        sys.exit(1)
-
-    username = os.getenv("HANABI_USERNAME")
-    if username == "":
-        printf('error: "HANABI_USERNAME" is blank in the ".env" file')
-        sys.exit(1)
-
-    password = os.getenv("HANABI_PASSWORD")
-    if password == "":
-        printf('error: "HANABI_PASSWORD" is blank in the ".env" file')
-        sys.exit(1)
-
+    use_localhost = config["use_localhost"]
     # Get an authenticated cookie by POSTing to the login handler
     if use_localhost:
         # Assume that we are not using a certificate if we are running a local
@@ -71,11 +30,14 @@ def main():
         protocol = "https"
         ws_protocol = "wss"
         host = "hanab.live"
+
     path = "/login"
     ws_path = "/ws"
     url = protocol + "://" + host + path
     ws_url = ws_protocol + "://" + host + ws_path
-    printf('Authenticating to "' + url + '" with a username of "' + username + '".')
+
+    password = config["bots"][username]
+    printf('Authenticating to "' + url + '" with username = "' + username + '", password = "' + password + '".')
     resp = requests.post(
         url,
         {
@@ -104,8 +66,10 @@ def main():
         printf(resp.headers)
         sys.exit(1)
 
-    HanabiClient(ws_url, cookie)
+    HanabiClient(ws_url, cookie, bot_to_join)
 
 
 if __name__ == "__main__":
-    main()
+    username = sys.argv[1]
+    bot_to_join = sys.argv[2] if len(sys.argv) > 2 else None
+    run(username, bot_to_join)

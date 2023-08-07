@@ -1,0 +1,10 @@
+{
+	"use_localhost": false,
+	"bots": {
+		"yagami_green": "a",
+		"yagami_blue": "b",
+		"yagami_red": "c",
+		"yagami_white": "d",
+		"yagami_light": "e"
+	}
+}

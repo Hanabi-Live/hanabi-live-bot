@@ -12,3 +12,6 @@ class ACTION:
 # The maximum amount of clues
 # (and the amount of clues that players start the game with)
 MAX_CLUE_NUM = 8
+
+COLOR_CLUE = 0
+RANK_CLUE = 1
