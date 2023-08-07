@@ -442,6 +442,10 @@ class HanabiClient:
             self.write_note(table_id, order, note)
 
     def standard_encoder(self, state, table_id):
+        # TODO: implement elim
+        # TODO: implement logic for other variants
+        # TODO: improve clue selection when multiple legal clues available
+
         good_actions = {
             player_index: state.get_good_actions(player_index)
             for player_index in range(state.num_players)
@@ -485,8 +489,16 @@ class HanabiClient:
                             continue
 
                         candidates = state.all_candidates_list[player_index][i]
-                        if state.is_trash(candidates.difference({(suit_index, rank)})):
+                        candidates_minus_my_play = candidates.difference({(suit_index, rank)})
+                        if state.is_trash(candidates_minus_my_play):
                             print('OTHER GUY WILL KNOW ITS TRASH AFTER I PLAY THIS')
+                            self.play(playable_order, table_id)
+                            return
+
+                        what_other_guy_sees = state.get_all_other_players_hat_clued_cards(player_index)
+                        unique_candidates_after_my_play = candidates_minus_my_play.difference(what_other_guy_sees)
+                        if not len(unique_candidates_after_my_play) or state.is_trash(unique_candidates_after_my_play):
+                            print('OTHER GUY WILL KNOW ITS DUPED AFTER I PLAY THIS')
                             self.play(playable_order, table_id)
                             return
 

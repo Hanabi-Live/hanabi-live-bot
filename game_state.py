@@ -983,12 +983,7 @@ class GameState:
             if self.is_trash(candidates):
                 continue
 
-            unique_candidates = candidates.difference(all_other_players_cards)
-            if not len(unique_candidates) or self.is_trash(unique_candidates):
-                # this is covered in another type of "good action" below
-                continue
-
-            if self.is_playable(unique_candidates.difference(self.trash)):
+            if self.is_playable(candidates.difference(self.trash)):
                 yoloable.append(hand[i].order)
 
         dupe_in_own_hand = []
