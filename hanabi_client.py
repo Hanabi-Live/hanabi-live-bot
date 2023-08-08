@@ -217,7 +217,7 @@ class HanabiClient:
         self.send("reattend", {"tableID": table_id})
 
     def chat_create_table(self):
-        self.send('tableCreate', {"name": "encoder (bot testing)", "maxPlayers": 5})
+        self.send('tableCreate', {"name": "valgrind", "maxPlayers": 5})
 
     def chat_set_variant(self, variant_name):
         if variant_name is not None:
@@ -577,16 +577,19 @@ class HanabiClient:
                 self.clue(target_index, clue_type, clue_value, table_id)
                 return
         
-        if len(my_good_actions['seen_in_other_hand']):
-            print('DISCARDING CARD SEEN BUT NOT TOUCHED!')
-            self.discard(my_good_actions['seen_in_other_hand'][0], table_id)
-            return
-
-        for i, candidates in enumerate(state.our_candidates):
-            if len(candidates.difference(state.criticals)) or i == len(state.our_candidates) - 1:
-                print('SACRIFICING SLOT ' + str(len(state.our_hand) - i - 1) + '!')
-                self.discard(state.our_hand[i].order, table_id)
+        if state.clue_tokens < 8:
+            if len(my_good_actions['seen_in_other_hand']):
+                print('DISCARDING CARD SEEN BUT NOT TOUCHED!')
+                self.discard(my_good_actions['seen_in_other_hand'][0], table_id)
                 return
+
+            for i, candidates in enumerate(state.our_candidates):
+                if not len(candidates.intersection(state.criticals)) or i == len(state.our_candidates) - 1:
+                    print('SACRIFICING SLOT ' + str(len(state.our_hand) - i - 1) + '!')
+                    self.discard(state.our_hand[i].order, table_id)
+                    return
+        else:
+            self.play(state.our_hand[-1].order, table_id)
 
     def give_really_dumb_clue(self, state):
         target_index = (state.our_player_index + 1) % state.num_players

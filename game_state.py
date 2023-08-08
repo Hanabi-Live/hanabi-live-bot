@@ -811,6 +811,41 @@ class GameState:
             result.append(lnhc)
         return result
 
+    def get_cards_touched_dict(self, variant_name: str, target_index: int, clue_type_values):
+        target_hand = self.hands[target_index]
+        clue_to_cards_touched = {}
+        for (clue_type, clue_value) in clue_type_values:
+            cards_touched = get_all_touched_cards(clue_type, clue_value, variant_name)
+            cards_touched_in_target_hand = [
+                card for card in target_hand
+                if (card.suit_index, card.rank) in cards_touched
+            ]
+            if len(cards_touched_in_target_hand):
+                clue_to_cards_touched[(clue_type, clue_value)] = cards_touched_in_target_hand
+        return {
+            (clue_value, clue_type, target_index): cards_touched
+            for (clue_type, clue_value), cards_touched in clue_to_cards_touched.items()
+        }
+
+    def get_special_hat_clues(self, variant_name: str, target_index: int, clue_mapping_only=False):
+        target_hand = self.hands[target_index]
+        dct = {}
+        if variant_name == "Valentine Mix (6 Suits)":
+            dct = {
+                0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
+                1: [(RANK_CLUE, 2), (COLOR_CLUE, 0)],
+                2: [(COLOR_CLUE, 1), (RANK_CLUE, 3)],
+                3: [(RANK_CLUE, 4)],
+            }
+
+        if clue_mapping_only:
+            return dct if len(dct) else None
+
+        return {
+            raw_residue: self.get_cards_touched_dict(variant_name, target_index, clue_type_values)
+            for raw_residue, clue_type_values in dct.items()
+        } if len(dct) else None
+
     def get_legal_hat_clues(self):
         sum_of_residues = 0
         num_residues = self.num_residues_per_player
@@ -832,24 +867,25 @@ class GameState:
 
         assert target_index != self.our_player_index
         print('Evaluating legal hat clues - sum of residues =', sum_of_residues, 'target_index', target_index)
+        maybe_special_hat_clues = self.get_special_hat_clues(self.variant_name, target_index)
+        if maybe_special_hat_clues is not None:
+            return maybe_special_hat_clues[raw_residue]
+
         if num_residues == 4:
             if raw_residue in {0, 1}:
                 if is_brownish_pinkish(self.variant_name):
-                    rank_to_cards_touched = {}
-                    clue_values = {2,4,5} if raw_residue == 0 else {1,3}
-                    for clue_value in clue_values:
-                        cards_touched = get_all_touched_cards(RANK_CLUE, clue_value, self.variant_name)
-                        cards_touched_in_target_hand = [
-                            card for card in target_hand
-                            if (card.suit_index, card.rank) in cards_touched
-                        ]
-                        if len(cards_touched_in_target_hand):
-                            rank_to_cards_touched[clue_value] = cards_touched_in_target_hand
-
-                    return {
-                        (clue_value, RANK_CLUE, target_index): cards_touched
-                        for clue_value, cards_touched in rank_to_cards_touched.items()
-                    }
+                    if raw_residue == 0:
+                        return self.get_cards_touched_dict(
+                            self.variant_name,
+                            target_index,
+                            [(RANK_CLUE, 2), (RANK_CLUE, 3), (RANK_CLUE, 5)]
+                        )
+                    else:
+                        return self.get_cards_touched_dict(
+                            self.variant_name,
+                            target_index,
+                            [(RANK_CLUE, 1), (RANK_CLUE, 4)]
+                        )
                 else:
                     rightmost_unnumbered = self.get_rightmost_unnumbered_card(target_index)
                     # iterate over rank clues
@@ -886,38 +922,59 @@ class GameState:
                             }
 
             elif raw_residue in {2, 3}:
-                rightmost_uncolored = self.get_rightmost_uncolored_card(target_index)
-                # iterate over color clues
-                color_to_cards_touched = {}
-                for clue_value, _ in enumerate(get_available_color_clues(self.variant_name)):
-                    cards_touched = get_all_touched_cards(COLOR_CLUE, clue_value, self.variant_name)
-                    cards_touched_in_target_hand =  [
-                        card for card in target_hand
-                        if (card.suit_index, card.rank) in cards_touched
-                    ]
-                    if len(cards_touched_in_target_hand):
-                        color_to_cards_touched[clue_value] = cards_touched_in_target_hand
+                if is_whiteish_rainbowy(self.variant_name):
+                    num_colors = len(get_available_color_clues(self.variant_name))
+                    if num_colors in {2,4,5,6}:
+                        color_to_cards_touched = {}
+                        clue_values = range(num_colors // 2) if raw_residue == 2 else range(num_colors // 2, num_colors)
+                        for clue_value in clue_values:
+                            cards_touched = get_all_touched_cards(COLOR_CLUE, clue_value, self.variant_name)
+                            cards_touched_in_target_hand = [
+                                card for card in target_hand
+                                if (card.suit_index, card.rank) in cards_touched
+                            ]
+                            if len(cards_touched_in_target_hand):
+                                color_to_cards_touched[clue_value] = cards_touched_in_target_hand
 
-                if rightmost_uncolored is None:
-                    clue_color = (min(color_to_cards_touched) if raw_residue == 2 else max(color_to_cards_touched))
-                    return {
-                        (clue_value, COLOR_CLUE, target_index): cards_touched
-                        for clue_value, cards_touched in color_to_cards_touched.items()
-                        if clue_value == clue_color
-                    }
-                else:
-                    if raw_residue == 2:
                         return {
                             (clue_value, COLOR_CLUE, target_index): cards_touched
                             for clue_value, cards_touched in color_to_cards_touched.items()
-                            if rightmost_uncolored in cards_touched
                         }
                     else:
+                        raise NotImplementedError
+                else: 
+                    rightmost_uncolored = self.get_rightmost_uncolored_card(target_index)
+                    # iterate over color clues
+                    color_to_cards_touched = {}
+                    for clue_value, _ in enumerate(get_available_color_clues(self.variant_name)):
+                        cards_touched = get_all_touched_cards(COLOR_CLUE, clue_value, self.variant_name)
+                        cards_touched_in_target_hand =  [
+                            card for card in target_hand
+                            if (card.suit_index, card.rank) in cards_touched
+                        ]
+                        if len(cards_touched_in_target_hand):
+                            color_to_cards_touched[clue_value] = cards_touched_in_target_hand
+
+                    if rightmost_uncolored is None:
+                        clue_color = (min(color_to_cards_touched) if raw_residue == 2 else max(color_to_cards_touched))
                         return {
                             (clue_value, COLOR_CLUE, target_index): cards_touched
                             for clue_value, cards_touched in color_to_cards_touched.items()
-                            if rightmost_uncolored not in cards_touched
+                            if clue_value == clue_color
                         }
+                    else:
+                        if raw_residue == 2:
+                            return {
+                                (clue_value, COLOR_CLUE, target_index): cards_touched
+                                for clue_value, cards_touched in color_to_cards_touched.items()
+                                if rightmost_uncolored in cards_touched
+                            }
+                        else:
+                            return {
+                                (clue_value, COLOR_CLUE, target_index): cards_touched
+                                for clue_value, cards_touched in color_to_cards_touched.items()
+                                if rightmost_uncolored not in cards_touched
+                            }
 
         elif num_residues == 3:
             raise NotImplementedError
@@ -930,10 +987,19 @@ class GameState:
         rightmost_unnumbered = self.get_rightmost_unnumbered_card(target_index)
         rightmost_uncolored = self.get_rightmost_uncolored_card(target_index)
 
+        clue_mappings = self.get_special_hat_clues(
+            self.variant_name, target_index, clue_mapping_only=True
+        )
+        if clue_mappings is not None:
+            for raw_residue, clue_type_values in clue_mappings.items():
+                for (_type, _value) in clue_type_values:
+                    if clue_type == _type and clue_value == _value:
+                        return raw_residue + ((target_index - clue_giver - 1) % self.num_players) * num_residues
+
         if num_residues == 4:
             if clue_type == RANK_CLUE:
                 if is_brownish_pinkish(self.variant_name):
-                    raw_residue = 0 if clue_value in {2,4,5} else 1
+                    raw_residue = 0 if clue_value in {2,3,5} else 1
                 else:
                     if rightmost_unnumbered is None:
                         all_ranks_clued = []
@@ -952,22 +1018,29 @@ class GameState:
                         else:
                             raw_residue = 1
             elif clue_type == COLOR_CLUE:
-                if rightmost_uncolored is None:
-                    all_colors_clued = []
-                    for card in self.hands[target_index]:
-                        all_colors_clued += self.color_clued_card_orders[card.order]
-
-                    if clue_value == min(all_colors_clued):
-                        raw_residue = 2
-                    elif clue_value == max(all_colors_clued):
-                        raw_residue = 3
+                if is_whiteish_rainbowy(self.variant_name):
+                    num_colors = len(get_available_color_clues(self.variant_name))
+                    if num_colors in {2,4,5,6}:
+                        raw_residue = 2 if clue_value in range(num_colors // 2) else 3
                     else:
-                        raise IndentationError
+                        raise NotImplementedError
                 else:
-                    if rightmost_uncolored.order in card_orders:
-                        raw_residue = 2
+                    if rightmost_uncolored is None:
+                        all_colors_clued = []
+                        for card in self.hands[target_index]:
+                            all_colors_clued += self.color_clued_card_orders[card.order]
+
+                        if clue_value == min(all_colors_clued):
+                            raw_residue = 2
+                        elif clue_value == max(all_colors_clued):
+                            raw_residue = 3
+                        else:
+                            raise IndentationError
                     else:
-                        raw_residue = 3
+                        if rightmost_uncolored.order in card_orders:
+                            raw_residue = 2
+                        else:
+                            raw_residue = 3
             else:
                 raise ImportError
         elif num_residues == 3:
@@ -1003,7 +1076,12 @@ class GameState:
             if self.is_trash(candidates):
                 continue
 
-            if self.is_playable(candidates.difference(self.trash)):
+            unique_candidates = candidates.difference(all_other_players_cards)
+            if not len(unique_candidates) or self.is_trash(unique_candidates):
+                # this is covered in another type of "good action" below
+                continue
+
+            if self.is_playable(unique_candidates.difference(self.trash)):
                 yoloable.append(hand[i].order)
 
         dupe_in_own_hand = []
