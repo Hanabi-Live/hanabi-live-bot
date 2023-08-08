@@ -502,7 +502,7 @@ class HanabiClient:
                             self.play(playable_order, table_id)
                             return
 
-            if state.pace < state.num_players - 1:
+            if state.pace <= state.num_players - 2:
                 print('PACE IS TOO LOW, NEED TO PLAY!!!')
                 self.play(sorted_playables[0], table_id)
             else:
@@ -510,7 +510,7 @@ class HanabiClient:
                 self.discard(sorted_playables[0], table_id)
             return
 
-        if len(my_good_actions['yoloable']) and state.bombs < 2:
+        if len(my_good_actions['yoloable']) and (state.bombs <= 1 or state.pace <= state.num_players - 3):
             self.play(my_good_actions['yoloable'][0], table_id)
             return
 
@@ -582,6 +582,12 @@ class HanabiClient:
                 print('DISCARDING CARD SEEN BUT NOT TOUCHED!')
                 self.discard(my_good_actions['seen_in_other_hand'][0], table_id)
                 return
+
+            for i, candidates in enumerate(state.our_candidates):
+                if state.our_hand[-i-1].order not in state.hat_clued_card_orders:
+                    print('SACRIFICING NON HAT CLUED SLOT ' + str(i) + '!')
+                    self.discard(state.our_hand[-i-1].order, table_id)
+                    return
 
             for i, candidates in enumerate(state.our_candidates):
                 if not len(candidates.intersection(state.criticals)) or i == len(state.our_candidates) - 1:
