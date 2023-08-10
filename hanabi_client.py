@@ -1,15 +1,12 @@
-# Imports (standard library)
 import json
-
-# Imports (3rd-party)
 import websocket
 
-# Imports (local application)
 from constants import ACTION, COLOR_CLUE, RANK_CLUE
-from game_state import GameState, Card, get_all_cards
-from util import printf
+from game_state import GameState
+from encoder import EncoderGameState
+from h_group import HGroupGameState
 import traceback
-from time import sleep
+from typing import Dict, Type
 
 
 def is_int(x):
@@ -21,8 +18,12 @@ def is_int(x):
 
 
 class HanabiClient:
-    def __init__(self, url, cookie, bot_to_join):
+    def __init__(self, url, cookie, bot_to_join: str, convention: str):
         self.bot_to_join = bot_to_join
+        self.game_state_cls: Type[GameState] = {
+            "encoder": EncoderGameState,
+            "hgroup": HGroupGameState,
+        }[convention.replace("_", "").replace("-", "").replace(" ", "").lower()]
 
         # Initialize all class variables
         self.commandHandlers = {}
@@ -31,7 +32,7 @@ class HanabiClient:
         self.ws = None
         self.action_time = False
         self.everyone_connected = False
-        self.games = {}
+        self.games: Dict[int, GameState] = {}
 
         # Initialize the website command handlers (for the lobby)
         self.commandHandlers["welcome"] = self.welcome
@@ -55,7 +56,7 @@ class HanabiClient:
         self.commandHandlers["chatTyping"] = self.chat_typing
 
         # Start the WebSocket client
-        printf('Connecting to "' + url + '".')
+        print(f'Connecting to "{url}".')
 
         self.ws = websocket.WebSocketApp(
             url,
@@ -67,10 +68,6 @@ class HanabiClient:
         )
         self.ws.run_forever()
 
-    # ------------------
-    # WebSocket Handlers
-    # ------------------
-
     def websocket_message(self, ws, message):
         # WebSocket messages from the server come in the format of:
         # commandName {"field_name":"value"}
@@ -78,17 +75,15 @@ class HanabiClient:
         # https://github.com/Hanabi-Live/hanabi-live/blob/main/server/src/actions.go
         result = message.split(" ", 1)  # Split it into two things
         if len(result) != 1 and len(result) != 2:
-            printf("error: received an invalid WebSocket message:")
-            printf(message)
+            print("error: received an invalid WebSocket message:")
+            print(message)
             return
 
         command = result[0]
         try:
             data = json.loads(result[1])
         except:
-            printf(
-                'error: the JSON data for the command of "' + command + '" was invalid'
-            )
+            print(f'error: the JSON data for the command of "{command}" was invalid')
             return
 
         if command in self.commandHandlers:
@@ -98,22 +93,22 @@ class HanabiClient:
             try:
                 self.commandHandlers[command](data)
             except Exception as e:
-                print('**************************\n' * 3)
+                print("**************************\n" * 3)
                 print('error: command handler for "' + command + '" failed, details:\n')
                 traceback.print_exc()
-                print('**************************\n' * 3)
+                print("**************************\n" * 3)
                 return
         else:
-            printf('debug: ignoring command "' + command + '"')
+            print(f'debug: ignoring command "{command}"')
 
     def websocket_error(self, ws, error):
-        printf("Encountered a WebSocket error:", error)
+        print(f"Encountered a WebSocket error: {error}")
 
     def websocket_close(self, ws):
-        printf("WebSocket connection closed.")
+        print("WebSocket connection closed.")
 
     def websocket_open(self, ws):
-        printf("Successfully established WebSocket connection.")
+        print("Successfully established WebSocket connection.")
 
     # --------------------------------
     # Website Command Handlers (Lobby)
@@ -130,11 +125,11 @@ class HanabiClient:
     def error(self, data):
         # Either we have done something wrong,
         # or something has gone wrong on the server
-        printf(data)
+        print(data)
 
     def warning(self, data):
         # We have done something wrong
-        printf(data)
+        print(data)
 
     def chat(self, data):
         # We only care about private messages
@@ -157,13 +152,18 @@ class HanabiClient:
             self.chat_start()
         elif command in {"setvariant", "set_variant"}:
             variant_name = (
-                args[1].replace("_", " ")
-                .replace("+"," & ")
-                .replace("6s", "(6 Suits)")
-                .replace("5s", "(5 Suits)")
-                .replace("4s", "(4 Suits)")
-                .replace("3s", "(3 Suits)")
-            ) if len(args) > 1 else None
+                (
+                    args[1]
+                    .replace("_", " ")
+                    .replace("+", " & ")
+                    .replace("6s", "(6 Suits)")
+                    .replace("5s", "(5 Suits)")
+                    .replace("4s", "(4 Suits)")
+                    .replace("3s", "(3 Suits)")
+                )
+                if len(args) > 1
+                else None
+            )
             self.chat_set_variant(variant_name)
         elif command == "terminate":
             table_id = args[1] if len(args) > 1 else None
@@ -191,7 +191,7 @@ class HanabiClient:
             player_name = data.get("who", "")
 
         print(player_name)
-        print('-----------')
+        print("-----------")
         for table in self.tables.values():
             # Ignore games that have already started (and shared replays)
             if table["running"]:
@@ -213,42 +213,50 @@ class HanabiClient:
 
         self.send("tableJoin", {"tableID": table_id})
 
-    def chat_reattend(self, table_id):
+    def chat_reattend(self, table_id: int):
         self.send("reattend", {"tableID": table_id})
 
     def chat_create_table(self):
-        self.send('tableCreate', {"name": "valgrind", "maxPlayers": 5})
+        self.send("tableCreate", {"name": "valgrind", "maxPlayers": 6})
 
-    def chat_set_variant(self, variant_name):
+    def chat_set_variant(self, variant_name: str):
         if variant_name is not None:
             for table in self.tables.values():
                 if self.username in table["players"]:
                     self.send(
-                        'tableSetVariant',
-                        {"tableID": table["id"], "options": {"variantName": variant_name}}
+                        "tableSetVariant",
+                        {
+                            "tableID": table["id"],
+                            "options": {"variantName": variant_name},
+                        },
                     )
 
     def chat_start(self):
         for table in self.tables.values():
             if self.username in table["players"]:
-                self.send('tableStart', {"tableID": table["id"]})
+                self.send("tableStart", {"tableID": table["id"]})
 
     def chat_restart(self):
         for table in self.tables.values():
             if self.username in table["players"]:
-                self.send('tableRestart', {"tableID": table["id"], "hidePregame": True})
+                self.s
+                self.send("tableRestart", {"tableID": table["id"], "hidePregame": True})
 
     def chat_terminate(self, table_id=None):
         if table_id is None:
             for table in self.tables.values():
                 if self.username in table["players"]:
                     table_id = table["id"]
-            
-        self.send('terminateTable', {"tableID": table_id})
+
+        self.send("terminateTable", {"tableID": table_id})
 
     def table(self, data):
         self.tables[data["id"]] = data
-        if self.bot_to_join is not None and self.bot_to_join != "create" and self.bot_to_join in data["players"]:
+        if (
+            self.bot_to_join is not None
+            and self.bot_to_join != "create"
+            and self.bot_to_join in data["players"]
+        ):
             self.send("tableJoin", {"tableID": data["id"]})
 
     def table_list(self, data_list):
@@ -270,7 +278,7 @@ class HanabiClient:
     # -------------------------------
 
     def init(self, data):
-        print('Init data:')
+        print("Init data:")
         print(data)
         print()
 
@@ -294,12 +302,13 @@ class HanabiClient:
 
         self.action_time = False
         self.everyone_connected = False
-        
+
         # Make a new game state and store it on the "games" dictionary
-        state = GameState(
+
+        state = self.game_state_cls(
             variant_name=data["options"]["variantName"],
             player_names=data["playerNames"],
-            our_player_index=data["ourPlayerIndex"]
+            our_player_index=data["ourPlayerIndex"],
         )
         self.games[data["tableID"]] = state
 
@@ -316,8 +325,12 @@ class HanabiClient:
             return
 
         state = self.games[data["tableID"]]
-        if (state.current_player_index == state.our_player_index) & self.action_time & self.everyone_connected:
-            print('Player ' + str(state.our_player_index) + ' DECIDING ACTION!')
+        if (
+            (state.current_player_index == state.our_player_index)
+            & self.action_time
+            & self.everyone_connected
+        ):
+            print("Player " + str(state.our_player_index) + " DECIDING ACTION!")
             self.decide_action(data["tableID"])
             self.action_time = False
 
@@ -336,25 +349,34 @@ class HanabiClient:
         self._go(data)
 
     def handle_action(self, data, table_id):
-        printf(
-            'debug: got a game action of "%s" for table %d: %s' % (data["type"], table_id, data)
-        )
+        _type = data["type"]
+        print(f'debug: got a game action of "{_type}" for table {table_id}: {data}')
 
         # Local variables
         state = self.games[table_id]
 
         if data["type"] == "draw":
-            card = state.handle_draw(data["playerIndex"], data["order"], data["suitIndex"], data["rank"])
+            card = state.handle_draw(
+                data["playerIndex"], data["order"], data["suitIndex"], data["rank"]
+            )
 
         elif data["type"] == "play":
-            state.handle_play(data["playerIndex"], data["order"], data["suitIndex"], data["rank"])
+            state.handle_play(
+                data["playerIndex"], data["order"], data["suitIndex"], data["rank"]
+            )
 
         elif data["type"] == "discard":
-            state.handle_discard(data["playerIndex"], data["order"], data["suitIndex"], data["rank"])
+            state.handle_discard(
+                data["playerIndex"], data["order"], data["suitIndex"], data["rank"]
+            )
 
         elif data["type"] == "clue":
             state.handle_clue(
-                data["giver"], data["target"], data["clue"]["type"], data["clue"]["value"], data["list"]
+                data["giver"],
+                data["target"],
+                data["clue"]["type"],
+                data["clue"]["value"],
+                data["list"],
             )
 
         elif data["type"] == "turn":
@@ -386,7 +408,7 @@ class HanabiClient:
 
     def connected(self, data):
         print("Connected: " + str(data))
-        self.everyone_connected = (sum(data["list"]) == len(data["list"]))
+        self.everyone_connected = sum(data["list"]) == len(data["list"])
         print("self.everyone_connected = " + str(self.everyone_connected))
 
     def clock(self, data):
@@ -406,42 +428,53 @@ class HanabiClient:
         self._go(data)
 
     def play(self, order, table_id):
-        self.send(
-            "action",
-            {"tableID": table_id, "type": ACTION.PLAY, "target": order}
-        )
+        self.send("action", {"tableID": table_id, "type": ACTION.PLAY, "target": order})
 
     def discard(self, order, table_id):
         self.send(
-            "action",
-            {"tableID": table_id, "type": ACTION.DISCARD, "target": order}
+            "action", {"tableID": table_id, "type": ACTION.DISCARD, "target": order}
         )
 
     def clue(self, target_index, clue_type, clue_value, table_id):
-        _type = {
-            COLOR_CLUE: ACTION.COLOR_CLUE,
-            RANK_CLUE: ACTION.RANK_CLUE
-        }[clue_type]
+        _type = {COLOR_CLUE: ACTION.COLOR_CLUE, RANK_CLUE: ACTION.RANK_CLUE}[clue_type]
         self.send(
             "action",
-            {"tableID": table_id, "type": _type, "target": target_index, "value": clue_value}
+            {
+                "tableID": table_id,
+                "type": _type,
+                "target": target_index,
+                "value": clue_value,
+            },
         )
 
     def write_note(self, table_id, order, note):
-        self.send(
-            "note",
-            {"tableID": table_id, "order": order, "note": note}
-        )
+        self.send("note", {"tableID": table_id, "order": order, "note": note})
 
     def decide_action(self, table_id):
         # The server expects to be told about actions in the following format:
         # https://github.com/Hanabi-Live/hanabi-live/blob/main/server/src/command.go
         state = self.games[table_id]
-        self.standard_encoder(state, table_id)
+        if isinstance(state, EncoderGameState):
+            self.encoder(state, table_id)
+        elif isinstance(state, HGroupGameState):
+            self.hgroup(state, table_id)
+        else:
+            raise ValueError(type(state))
+
         for order, note in state.notes.items():
             self.write_note(table_id, order, note)
 
-    def standard_encoder(self, state, table_id):
+    def hgroup(self, state: HGroupGameState, table_id: int):
+        good_actions = {
+            player_index: state.get_good_actions(player_index)
+            for player_index in range(state.num_players)
+        }
+        my_good_actions = good_actions[state.our_player_index]
+        print(state.our_player_name + " good actions:")
+        for action_type, orders in good_actions.items():
+            print(action_type, orders)
+
+    def encoder(self, state: EncoderGameState, table_id: int):
         # TODO: implement elim
         # TODO: implement logic for other variants
         # TODO: improve clue selection when multiple legal clues available
@@ -451,20 +484,29 @@ class HanabiClient:
             for player_index in range(state.num_players)
         }
         my_good_actions = good_actions[state.our_player_index]
-        print(state.our_player_name + ' good actions:')
+        print(state.our_player_name + " good actions:")
         for action_type, orders in good_actions.items():
             print(action_type, orders)
 
-        if len(my_good_actions['playable']):
+        if len(my_good_actions["playable"]):
             # sort playables by lowest possible rank of candidates
             sorted_playables = sorted(
-                my_good_actions['playable'],
-                key=lambda order: min([x[1] for x in state.get_candidates(order)])
+                my_good_actions["playable"],
+                key=lambda order: min([x[1] for x in state.get_candidates(order)]),
             )
+            playable_fives = [
+                order
+                for order in my_good_actions["playable"]
+                if min([x[1] for x in state.get_candidates(order)]) == 5
+            ]
+            if len(playable_fives):
+                self.play(playable_fives[0], table_id)
+                return
 
             unique_playables = [
-                order for order in sorted_playables
-                if order not in my_good_actions['dupe_in_other_hand']
+                order
+                for order in sorted_playables
+                if order not in my_good_actions["dupe_in_other_hand"]
             ]
             if len(unique_playables):
                 self.play(unique_playables[0], table_id)
@@ -475,7 +517,7 @@ class HanabiClient:
             for playable_order in sorted_playables:
                 playable_candidates = state.get_candidates(playable_order)
                 if len(playable_candidates) >= 2:
-                    print('TOO MANY CANDIDATES TO WORRY ABOUT, PLAYING THIS')
+                    print("TOO MANY CANDIDATES TO WORRY ABOUT, PLAYING THIS")
                     self.play(playable_order, table_id)
                     return
 
@@ -489,29 +531,39 @@ class HanabiClient:
                             continue
 
                         candidates = state.all_candidates_list[player_index][i]
-                        candidates_minus_my_play = candidates.difference({(suit_index, rank)})
+                        candidates_minus_my_play = candidates.difference(
+                            {(suit_index, rank)}
+                        )
                         if state.is_trash(candidates_minus_my_play):
-                            print('OTHER GUY WILL KNOW ITS TRASH AFTER I PLAY THIS')
+                            print("OTHER GUY WILL KNOW ITS TRASH AFTER I PLAY THIS")
                             self.play(playable_order, table_id)
                             return
 
-                        what_other_guy_sees = state.get_all_other_players_hat_clued_cards(player_index)
-                        unique_candidates_after_my_play = candidates_minus_my_play.difference(what_other_guy_sees)
-                        if not len(unique_candidates_after_my_play) or state.is_trash(unique_candidates_after_my_play):
-                            print('OTHER GUY WILL KNOW ITS DUPED AFTER I PLAY THIS')
+                        what_other_guy_sees = (
+                            state.get_all_other_players_hat_clued_cards(player_index)
+                        )
+                        unique_candidates_after_my_play = (
+                            candidates_minus_my_play.difference(what_other_guy_sees)
+                        )
+                        if not len(unique_candidates_after_my_play) or state.is_trash(
+                            unique_candidates_after_my_play
+                        ):
+                            print("OTHER GUY WILL KNOW ITS DUPED AFTER I PLAY THIS")
                             self.play(playable_order, table_id)
                             return
 
             if state.pace <= state.num_players - 2:
-                print('PACE IS TOO LOW, NEED TO PLAY!!!')
+                print("PACE IS TOO LOW, NEED TO PLAY!!!")
                 self.play(sorted_playables[0], table_id)
             else:
-                print('NO DUPES WILL DEFINITELY RESOLVE, GDing this instead')
+                print("NO DUPES WILL DEFINITELY RESOLVE, GDing this instead")
                 self.discard(sorted_playables[0], table_id)
             return
 
-        if len(my_good_actions['yoloable']) and (state.bombs <= 1 or state.pace <= state.num_players - 3):
-            self.play(my_good_actions['yoloable'][0], table_id)
+        if len(my_good_actions["yoloable"]) and (
+            state.bombs <= 1 or state.pace <= state.num_players - 3
+        ):
+            self.play(my_good_actions["yoloable"][0], table_id)
             return
 
         lnhcs = state.get_leftmost_non_hat_clued_cards()
@@ -527,94 +579,122 @@ class HanabiClient:
         legal_hat_clues = state.get_legal_hat_clues()
         if 0 <= state.score_pct < 0.24:
             token_threshold = 2
-            num_useful_cards_touched = int(0.78 * (state.num_players - 1))
+            num_useful_cards_touched = int(0.78 * min(4, state.num_players - 1))
         elif 0.24 <= state.score_pct < 0.48:
             token_threshold = 2
-            num_useful_cards_touched = int(0.68 * (state.num_players - 1))
+            num_useful_cards_touched = int(0.68 * min(4, state.num_players - 1))
         elif 0.48 <= state.score_pct < 0.72:
             token_threshold = 2
-            num_useful_cards_touched = int(0.58 * (state.num_players - 1))
+            num_useful_cards_touched = int(0.58 * min(4, state.num_players - 1))
         else:
             token_threshold = 2
-            num_useful_cards_touched = int(0.48 * (state.num_players - 1))
+            num_useful_cards_touched = int(0.48 * min(4, state.num_players - 1))
 
-        if state.clue_tokens >= token_threshold and num_useful_cards >= num_useful_cards_touched:
-            for (clue_value, clue_type, target_index), cards_touched in legal_hat_clues.items():
-                print('USEFUL CLUE! Score pct =', round(state.score_pct, 3), ', we see', str(lnhcs))
+        if (
+            state.clue_tokens >= token_threshold
+            and num_useful_cards >= num_useful_cards_touched
+        ):
+            for (
+                clue_value,
+                clue_type,
+                target_index,
+            ), cards_touched in legal_hat_clues.items():
+                print(
+                    "USEFUL CLUE! Score pct =",
+                    round(state.score_pct, 3),
+                    ", we see",
+                    str(lnhcs),
+                )
                 self.clue(target_index, clue_type, clue_value, table_id)
                 return
 
         # basic stall in endgame
         if state.clue_tokens > 0 and (state.pace < 3 or state.num_cards_in_deck == 1):
-            for (clue_value, clue_type, target_index), cards_touched in legal_hat_clues.items():
-                print('STALL CLUE!')
+            for (
+                clue_value,
+                clue_type,
+                target_index,
+            ), cards_touched in legal_hat_clues.items():
+                print("STALL CLUE!")
+                self.clue(target_index, clue_type, clue_value, table_id)
+                return
+
+        # basic stall in endgame
+        if state.clue_tokens >= state.num_players and (
+            state.num_cards_in_deck <= state.num_players / 2
+        ):
+            for (
+                clue_value,
+                clue_type,
+                target_index,
+            ), cards_touched in legal_hat_clues.items():
+                print("STALL CLUE 2!")
                 self.clue(target_index, clue_type, clue_value, table_id)
                 return
 
         # discard if nothing better to do
         if state.clue_tokens < 8:
-            if len(my_good_actions['trash']):
-                print('X TRASH')
-                self.discard(my_good_actions['trash'][0], table_id)
+            if len(my_good_actions["trash"]):
+                print("X TRASH")
+                self.discard(my_good_actions["trash"][0], table_id)
                 return
-            if len(my_good_actions['dupe_in_own_hand']):
-                print('X DUPE_IN_OWN_HAND')
-                self.discard(my_good_actions['dupe_in_own_hand'][0], table_id)
+            if len(my_good_actions["dupe_in_own_hand"]):
+                print("X DUPE_IN_OWN_HAND")
+                self.discard(my_good_actions["dupe_in_own_hand"][0], table_id)
                 return
-            if len(my_good_actions['dupe_in_other_hand']):
-                print('X DUPE_IN_OTHER_HAND')
-                self.discard(my_good_actions['dupe_in_other_hand'][0], table_id)
+            if len(my_good_actions["dupe_in_other_hand"]):
+                print("X DUPE_IN_OTHER_HAND")
+                self.discard(my_good_actions["dupe_in_other_hand"][0], table_id)
                 return
-            if len(my_good_actions['dupe_in_other_hand_or_trash']):
-                print('X DUPE_IN_OTHER_HAND_OR_TRASH')
-                self.discard(my_good_actions['dupe_in_other_hand_or_trash'][0], table_id)
-                return     
+            if len(my_good_actions["dupe_in_other_hand_or_trash"]):
+                print("X DUPE_IN_OTHER_HAND_OR_TRASH")
+                self.discard(
+                    my_good_actions["dupe_in_other_hand_or_trash"][0], table_id
+                )
+                return
 
         # unless we have no safe actions
         if state.clue_tokens > 0 and len(legal_hat_clues):
-            for (clue_value, clue_type, target_index), cards_touched in legal_hat_clues.items():
-                print('CLUE BECAUSE NO SAFE ACTION!')
+            for (
+                clue_value,
+                clue_type,
+                target_index,
+            ), cards_touched in legal_hat_clues.items():
+                print("CLUE BECAUSE NO SAFE ACTION!")
                 self.clue(target_index, clue_type, clue_value, table_id)
                 return
-        
+
         if state.clue_tokens < 8:
-            if len(my_good_actions['seen_in_other_hand']):
-                print('DISCARDING CARD SEEN BUT NOT TOUCHED!')
-                self.discard(my_good_actions['seen_in_other_hand'][0], table_id)
+            if len(my_good_actions["seen_in_other_hand"]):
+                print("DISCARDING CARD SEEN BUT NOT TOUCHED!")
+                self.discard(my_good_actions["seen_in_other_hand"][0], table_id)
                 return
 
             for i, candidates in enumerate(state.our_candidates):
-                if state.our_hand[-i-1].order not in state.hat_clued_card_orders:
-                    print('SACRIFICING NON HAT CLUED SLOT ' + str(i) + '!')
-                    self.discard(state.our_hand[-i-1].order, table_id)
+                if state.our_hand[-i - 1].order not in state.hat_clued_card_orders:
+                    print("SACRIFICING NON HAT CLUED SLOT " + str(i) + "!")
+                    self.discard(state.our_hand[-i - 1].order, table_id)
                     return
 
             for i, candidates in enumerate(state.our_candidates):
-                if not len(candidates.intersection(state.criticals)) or i == len(state.our_candidates) - 1:
-                    print('SACRIFICING SLOT ' + str(len(state.our_hand) - i - 1) + '!')
+                if (
+                    not len(candidates.intersection(state.criticals))
+                    or i == len(state.our_candidates) - 1
+                ):
+                    print("SACRIFICING SLOT " + str(len(state.our_hand) - i - 1) + "!")
                     self.discard(state.our_hand[i].order, table_id)
                     return
         else:
-            self.play(state.our_hand[-1].order, table_id)
-
-    def give_really_dumb_clue(self, state):
-        target_index = (state.our_player_index + 1) % state.num_players
-        target_hand = state.hands[target_index]
-        has_clued = False
-        for j in range(len(target_hand)):
-            jth_oldest = target_hand[j]
-            if jth_oldest.order not in state.rank_clued_card_orders:
-                self.clue(target_index, RANK_CLUE, jth_oldest.rank, table_id)
-                has_clued = True
-        if not has_clued:
-            for j in range(len(target_hand)):
-                jth_oldest = target_hand[j]
-                if jth_oldest.order not in state.color_clued_card_orders:
-                    self.clue(target_index, COLOR_CLUE, jth_oldest.suit_index, table_id)
-                    has_clued = True
-        if not has_clued:
-            slot_1_card = target_hand[-1]
-            self.clue(target_index, COLOR_CLUE, slot_1_card.suit_index, table_id)
+            for i, candidates in enumerate(state.our_candidates):
+                if (
+                    not len(candidates.intersection(state.criticals))
+                    or i == len(state.our_candidates) - 1
+                ):
+                    print(
+                        "STALL BOMBING SLOT " + str(len(state.our_hand) - i - 1) + "!"
+                    )
+                    self.play(state.our_hand[i].order, table_id)
+                    return
 
     # -----------
     # Subroutines
@@ -634,7 +714,6 @@ class HanabiClient:
         if not isinstance(data, dict):
             data = {}
         self.ws.send(command + " " + json.dumps(data))
-        #printf('debug: sent command "' + command + '"')
 
     def remove_card_from_hand(self, state, player_index, order):
         hand = state.hands[player_index]

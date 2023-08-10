@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-
 import sys
-from util import printf
 
 import os
 import json
@@ -13,7 +11,9 @@ from hanabi_client import HanabiClient
 # Authenticate, login to the WebSocket server, and run forever
 def run(username, bot_to_join):
     # Check to see if the ".env" file exists
-    config_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "config.json")
+    config_file = os.path.join(
+        os.path.realpath(os.path.dirname(__file__)), "config.json"
+    )
     with open(config_file, "r") as f:
         config = json.load(f)
 
@@ -37,7 +37,7 @@ def run(username, bot_to_join):
     ws_url = ws_protocol + "://" + host + ws_path
 
     password = config["bots"][username]
-    printf('Authenticating to "' + url + '" with username = "' + username + '", password = "' + password + '".')
+    print(f'Authenticating to "{url}" with username = "{username}".')
     resp = requests.post(
         url,
         {
@@ -51,8 +51,8 @@ def run(username, bot_to_join):
 
     # Handle failed authentication and other errors
     if resp.status_code != 200:
-        printf("Authentication failed:")
-        printf(resp.text)
+        print("Authentication failed:")
+        print(resp.text)
         sys.exit(1)
 
     # Scrape the cookie from the response
@@ -62,11 +62,12 @@ def run(username, bot_to_join):
             cookie = header[1]
             break
     if cookie == "":
-        printf("Failed to parse the cookie from the authentication response headers:")
-        printf(resp.headers)
+        print("Failed to parse the cookie from the authentication response headers:")
+        print(resp.headers)
         sys.exit(1)
 
-    HanabiClient(ws_url, cookie, bot_to_join)
+    convention = config["convention"]
+    HanabiClient(ws_url, cookie, bot_to_join, convention)
 
 
 if __name__ == "__main__":
