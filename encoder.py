@@ -339,13 +339,31 @@ class EncoderGameState(GameState):
         for i, card in enumerate(self.hands[target_index]):
             if card.order in card_orders:
                 touched_cards.append(card)
-                candidates_list[i] = candidates_list[i].intersection(
+                new_candidates = candidates_list[i].intersection(
                     all_cards_touched_by_clue
                 )
+                if not len(new_candidates):
+                    self.write_note(
+                        card.order,
+                        note="existing positive clue conflicts with earlier info",
+                    )
+                    candidates_list[i] = all_cards_touched_by_clue
+                else:
+                    candidates_list[i] = new_candidates
             else:
-                candidates_list[i] = candidates_list[i].difference(
+                new_candidates = candidates_list[i].difference(
                     all_cards_touched_by_clue
                 )
+                if not len(new_candidates):
+                    self.write_note(
+                        card.order,
+                        note="existing negative clue conflicts with earlier info",
+                    )
+                    candidates_list[i] = get_all_cards(self.variant_name).difference(
+                        all_cards_touched_by_clue
+                    )
+                else:
+                    candidates_list[i] = new_candidates
 
         identity_to_residue = self.identity_to_residue
         residue_to_identities = self.residue_to_identities
@@ -378,12 +396,18 @@ class EncoderGameState(GameState):
             new_candidates = self.all_candidates_list[player_index][i].intersection(
                 residue_to_identities[other_residue]
             )
-            self.all_candidates_list[player_index][i] = new_candidates
+            if len(new_candidates):
+                self.all_candidates_list[player_index][i] = new_candidates
 
-            self.write_note(
-                left_non_hat_clued.order, note="", candidates=new_candidates
-            )
-            self.hat_clued_card_orders.add(left_non_hat_clued.order)
+                self.write_note(
+                    left_non_hat_clued.order, note="", candidates=new_candidates
+                )
+                self.hat_clued_card_orders.add(left_non_hat_clued.order)
+            else:
+                self.write_note(
+                    left_non_hat_clued.order,
+                    note="someone messed up and gave a bad hat clue",
+                )
 
         if self.our_player_index != clue_giver:
             my_residue = (hat_residue - sum_of_others_residues) % self.mod_base
@@ -438,16 +462,15 @@ class EncoderGameState(GameState):
 
         return (
             {
-                raw_residue: self.get_cards_touched_dict(
-                    variant_name, target_index, clue_type_values
-                )
+                raw_residue: self.get_cards_touched_dict(target_index, clue_type_values)
                 for raw_residue, clue_type_values in dct.items()
             }
             if len(dct)
             else None
         )
 
-    def get_legal_hat_clues(self) -> Dict[Tuple[int, int, int], Set[Tuple[int, int]]]:
+    def get_legal_clues(self) -> Dict[Tuple[int, int, int], Set[Tuple[int, int]]]:
+        # (clue_value, clue_type, target_index) -> cards_touched
         sum_of_residues = 0
         num_residues = self.num_residues_per_player
 
@@ -486,13 +509,11 @@ class EncoderGameState(GameState):
                 if is_brownish_pinkish(self.variant_name):
                     if raw_residue == 0:
                         return self.get_cards_touched_dict(
-                            self.variant_name,
                             target_index,
                             [(RANK_CLUE, 2), (RANK_CLUE, 3), (RANK_CLUE, 5)],
                         )
                     else:
                         return self.get_cards_touched_dict(
-                            self.variant_name,
                             target_index,
                             [(RANK_CLUE, 1), (RANK_CLUE, 4)],
                         )
@@ -743,7 +764,7 @@ class EncoderGameState(GameState):
         seen_in_other_hand = []
 
         fully_knowns = self.get_fully_known_card_orders(player_index)
-        for (suit_index, rank), orders in fully_knowns.items():
+        for _, orders in fully_knowns.items():
             if len(orders) > 1:
                 dupe_in_own_hand += orders[1:]
 

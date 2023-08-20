@@ -217,7 +217,7 @@ class HanabiClient:
         self.send("reattend", {"tableID": table_id})
 
     def chat_create_table(self):
-        self.send("tableCreate", {"name": "valgrind", "maxPlayers": 6})
+        self.send("tableCreate", {"name": "bots", "maxPlayers": 6})
 
     def chat_set_variant(self, variant_name: str):
         if variant_name is not None:
@@ -361,16 +361,19 @@ class HanabiClient:
             )
 
         elif data["type"] == "play":
+            state.print()
             state.handle_play(
                 data["playerIndex"], data["order"], data["suitIndex"], data["rank"]
             )
 
         elif data["type"] == "discard":
+            state.print()
             state.handle_discard(
                 data["playerIndex"], data["order"], data["suitIndex"], data["rank"]
             )
 
         elif data["type"] == "clue":
+            state.print()
             state.handle_clue(
                 data["giver"],
                 data["target"],
@@ -388,9 +391,6 @@ class HanabiClient:
 
         elif data["type"] == "status":
             state.clue_tokens = data["clues"]
-
-        if data["type"] in {"play", "discard", "clue"}:
-            state.print()
 
     def database_id(self, data):
         # Games are transformed into shared replays after they are completed
@@ -428,15 +428,18 @@ class HanabiClient:
         self._go(data)
 
     def play(self, order, table_id):
+        print(f"Playing order: {order}")
         self.send("action", {"tableID": table_id, "type": ACTION.PLAY, "target": order})
 
     def discard(self, order, table_id):
+        print(f"Discarding order: {order}")
         self.send(
             "action", {"tableID": table_id, "type": ACTION.DISCARD, "target": order}
         )
 
     def clue(self, target_index, clue_type, clue_value, table_id):
         _type = {COLOR_CLUE: ACTION.COLOR_CLUE, RANK_CLUE: ACTION.RANK_CLUE}[clue_type]
+        print(f"Giving {_type._name_} with value {clue_value} to {target_index}")
         self.send(
             "action",
             {
@@ -470,9 +473,128 @@ class HanabiClient:
             for player_index in range(state.num_players)
         }
         my_good_actions = good_actions[state.our_player_index]
-        print(state.our_player_name + " good actions:")
-        for action_type, orders in good_actions.items():
-            print(action_type, orders)
+        next_player_good_actions = good_actions[state.next_player_index]
+        print(f"{state.our_player_name} POV - good actions:")
+        for player_index, orders in good_actions.items():
+            print(player_index, orders)
+
+        next_player_has_safe_action = False
+        my_chop_order = state.get_chop_order(state.our_player_index)
+        np_chop_order = state.get_chop_order(state.next_player_index)
+        np_chop = state.get_card(np_chop_order)
+
+        for action_type, orders in next_player_good_actions.items():
+            if action_type == "seen_in_other_hand":
+                # TODO: handle this at later levels
+                continue
+            if len(orders):
+                next_player_has_safe_action = True
+                break
+
+        if not next_player_has_safe_action and state.clue_tokens > 0:
+            # TODO: expand scope of playables
+            # TODO: implement other vars lol
+            if (np_chop.suit_index, np_chop.rank) in state.playables:
+                self.clue(
+                    state.next_player_index, COLOR_CLUE, np_chop.suit_index, table_id
+                )
+                return
+            elif (np_chop.suit_index, np_chop.rank) in state.criticals:
+                self.clue(state.next_player_index, RANK_CLUE, np_chop.rank, table_id)
+                return
+        else:
+            if len(my_good_actions["trash"]):
+                self.discard(my_good_actions["trash"][0], table_id)
+                return
+            else:
+                self.discard(my_chop_order, table_id)
+                return
+
+        # play if nothing urgent to do
+        if len(my_good_actions["playable"]):
+            # sort playables by lowest possible rank of candidates
+            sorted_playables = sorted(
+                my_good_actions["playable"],
+                key=lambda order: min([x[1] for x in state.get_candidates(order)]),
+            )
+            playable_fives = [
+                order
+                for order in my_good_actions["playable"]
+                if min([x[1] for x in state.get_candidates(order)]) == 5
+            ]
+            if len(playable_fives):
+                self.play(playable_fives[0], table_id)
+                return
+
+            unique_playables = [
+                order
+                for order in sorted_playables
+                if order not in my_good_actions["dupe_in_other_hand"]
+            ]
+            if len(unique_playables):
+                self.play(unique_playables[0], table_id)
+                return
+
+            # all the playables we have are duped in someone else's hand
+            # figure out where the duped card is and how to best resolve it
+            for playable_order in sorted_playables:
+                playable_candidates = state.get_candidates(playable_order)
+                if state.pace <= state.num_players - 2:
+                    print("PACE IS TOO LOW, NEED TO PLAY!!!")
+                    self.play(playable_order, table_id)
+                    return
+
+                if len(playable_candidates) >= 2:
+                    print("IDK WHAT THIS IS BUT ITS DUPED")
+                    self.discard(playable_order, table_id)
+                    return
+
+                suit_index, rank = list(playable_candidates)[0]
+                for player_index, hand in state.hands.items():
+                    if player_index == state.our_player_index:
+                        continue
+
+                    for i, card in enumerate(hand):
+                        if (suit_index, rank) != (card.suit_index, card.rank):
+                            continue
+
+                        candidates = state.all_candidates_list[player_index][i]
+                        candidates_minus_my_play = candidates.difference(
+                            {(suit_index, rank)}
+                        )
+                        if state.is_trash(candidates_minus_my_play):
+                            print("OTHER GUY WILL KNOW ITS TRASH AFTER I PLAY THIS")
+                            self.play(playable_order, table_id)
+                            return
+
+                        what_other_guy_sees = state.get_all_other_players_clued_cards(
+                            player_index
+                        )
+                        unique_candidates_after_my_play = (
+                            candidates_minus_my_play.difference(what_other_guy_sees)
+                        )
+                        if not len(unique_candidates_after_my_play) or state.is_trash(
+                            unique_candidates_after_my_play
+                        ):
+                            print("OTHER GUY WILL KNOW ITS DUPED AFTER I PLAY THIS")
+                            self.play(playable_order, table_id)
+                            return
+
+        if state.clue_tokens < 8:
+            for trashable in [
+                "trash",
+                "dupe_in_own_hand",
+                "dupe_in_other_hand",
+                "dupe_in_other_hand_or_trash",
+            ]:
+                if len(my_good_actions[trashable]):
+                    self.discard(my_good_actions[trashable][0], table_id)
+                    return
+
+            self.discard(my_chop_order, table_id)
+            return
+
+        self.clue(state.next_player_index, RANK_CLUE, np_chop.rank, table_id)
 
     def encoder(self, state: EncoderGameState, table_id: int):
         # TODO: implement elim
@@ -576,7 +698,7 @@ class HanabiClient:
             num_useful_cards += 1
 
         # clues that get a lot of useful cards are good
-        legal_hat_clues = state.get_legal_hat_clues()
+        legal_hat_clues = state.get_legal_clues()
         if 0 <= state.score_pct < 0.24:
             token_threshold = 2
             num_useful_cards_touched = int(0.78 * min(4, state.num_players - 1))

@@ -68,7 +68,7 @@ def get_available_color_clues(variant_name: str):
     return available_color_clues
 
 
-def get_all_cards(variant_name: str):
+def get_all_cards(variant_name: str) -> Set[Tuple[int, int]]:
     cards = set()
     for i, suit in enumerate(SUITS[variant_name]):
         for rank in range(1, 6):
@@ -77,7 +77,7 @@ def get_all_cards(variant_name: str):
     return cards
 
 
-def get_all_cards_with_multiplicity(variant_name: str):
+def get_all_cards_with_multiplicity(variant_name: str) -> List[Tuple[int, int]]:
     cards = []
     for i, suit in enumerate(SUITS[variant_name]):
         for rank in range(1, 6):
@@ -91,14 +91,9 @@ def get_all_cards_with_multiplicity(variant_name: str):
     return cards
 
 
-def get_random_deck(variant_name: str):
-    # usually used for testing purposes
-    cards = get_all_cards_with_multiplicity(variant_name)
-    perm = np.random.permutation(cards)
-    return [Card(order, x[0], x[1]) for order, x in enumerate(perm)]
-
-
-def get_all_touched_cards(clue_type: int, clue_value: int, variant_name: str):
+def get_all_touched_cards(
+    clue_type: int, clue_value: int, variant_name: str
+) -> Set[Tuple[int, int]]:
     # TODO - handle nonstandard suits like ambiguous, dual color, etc.
     # TODO - handle special 1s and 5s
     available_color_clues = get_available_color_clues(variant_name)
@@ -220,15 +215,20 @@ class GameState:
 
         # Initialize the hands for each player (an array of cards)
         self.hands: Dict[int, List[Card]] = {}
+
+        # possibilities include only positive/negative information
+        # candidates further narrow possibilities based on conventions
+        self.all_possibilities_list: Dict[int, List[Set[Tuple[int, int]]]] = {}
         self.all_candidates_list: Dict[int, List[Set[Tuple[int, int]]]] = {}
         for i in range(len(player_names)):
             self.hands[i] = []
+            self.all_possibilities_list[i] = []
             self.all_candidates_list[i] = []
 
         self.clue_tokens: int = MAX_CLUE_NUM
         self.bombs: int = 0
-        self.rank_clued_card_orders: Dict[int, List[int]] = {}    # order -> clue vals
-        self.color_clued_card_orders: Dict[int, List[int]] = {}    # order -> clue vals
+        self.rank_clued_card_orders: Dict[int, List[int]] = {}  # order -> clue vals
+        self.color_clued_card_orders: Dict[int, List[int]] = {}  # order -> clue vals
         self.other_info_clued_card_orders: Dict[str, Set[int]] = {}
         self.stacks: List[int] = [0] * len(SUITS[variant_name])
         self.discards: Dict[
@@ -255,36 +255,52 @@ class GameState:
         return sum(self.stacks) / (5 * len(self.stacks))
 
     @property
+    def max_num_cards(self) -> Dict[Tuple[int, int], int]:
+        all_cards = get_all_cards(self.variant_name)
+        result = {}
+        for suit_index, rank in all_cards:
+            result[(suit_index, rank)] = 1
+            if SUITS[self.variant_name][suit_index] not in DARK_SUIT_NAMES:
+                if rank in {2, 3, 4}:
+                    result[(suit_index, rank)] += 1
+                elif rank == 1:
+                    result[(suit_index, rank)] += 2
+        return result
+
+    @property
     def criticals(self) -> Set[Tuple[int, int]]:
         # TODO: handle reversed
-        fives = set([(suit, 5) for suit in range(len(self.stacks))])
-        dark_suits = set(
-            [
-                (suit, i)
-                for i in range(1, 6)
-                for suit, suit_name in enumerate(SUITS[self.variant_name])
-                if suit_name in DARK_SUIT_NAMES
-            ]
-        )
-        all_trash = self.trash
-        other_crits = set()
-        for (suit, rank), num_discards in self.discards.items():
-            if (suit, rank) in all_trash:
+        trash = self.trash
+        crits = set()
+        for (suit, rank), max_num in self.max_num_cards.items():
+            if (suit, rank) in trash:
                 continue
-            if rank == 1 and num_discards == 2:
-                other_crits.add((suit, rank))
-            if rank in {2, 3, 4} and num_discards == 1:
-                other_crits.add((suit, rank))
-        return fives.union(dark_suits).union(other_crits)
+            if self.discards.get((suit, rank), 0) == max_num - 1:
+                crits.add((suit, rank))
+        return crits
+
+    @property
+    def non_5_criticals(self) -> Set[Tuple[int, int]]:
+        return {(suit, rank) for (suit, rank) in self.criticals if rank != 5}
 
     @property
     def trash(self) -> Set[Tuple[int, int]]:
         # TODO: handle reversed
-        # TODO: maybe handle the case where if all copies of a card were discarded then the rest is trash
         trash_cards = set()
         for suit, stack in enumerate(self.stacks):
             for i in range(stack):
                 trash_cards.add((suit, i + 1))
+
+        dead_suits = {suit: 5 for suit, _ in enumerate(self.stacks)}
+        max_num_cards = self.max_num_cards
+        for (suit, rank), num_discards in self.discards.items():
+            assert num_discards <= max_num_cards[(suit, rank)]
+            if num_discards == max_num_cards[(suit, rank)]:
+                dead_suits[suit] = min(rank, dead_suits[suit])
+
+        for suit, dead_from in dead_suits.items():
+            for i in range(dead_from + 1, 6):
+                trash_cards.add((suit, i))
         return trash_cards
 
     @property
@@ -310,6 +326,10 @@ class GameState:
         return self.all_candidates_list[self.our_player_index]
 
     @property
+    def our_possibilities(self) -> List[Set[Tuple[int, int]]]:
+        return self.all_possibilities_list[self.our_player_index]
+
+    @property
     def num_1s_played(self) -> int:
         return sum([x > 0 for x in self.stacks])
 
@@ -325,18 +345,22 @@ class GameState:
         player_index, i = self.order_to_index[order]
         return self.all_candidates_list[player_index][i]
 
+    def get_possibilities(self, order) -> Set[Tuple[int, int]]:
+        player_index, i = self.order_to_index[order]
+        return self.all_possibilities_list[player_index][i]
+
     def get_card(self, order) -> Card:
         player_index, i = self.order_to_index[order]
         return self.hands[player_index][i]
 
     def is_playable(self, candidates) -> bool:
-        return not len(candidates.difference(self.playables))
+        return not len(candidates.difference(self.playables)) and len(candidates)
 
     def is_trash(self, candidates) -> bool:
-        return not len(candidates.difference(self.trash))
+        return not len(candidates.difference(self.trash)) and len(candidates)
 
     def is_critical(self, candidates) -> bool:
-        return not len(candidates.difference(self.criticals))
+        return not len(candidates.difference(self.criticals)) and len(candidates)
 
     def get_all_other_players_cards(self, player_index=None) -> Set[Tuple[int, int]]:
         return {
@@ -344,6 +368,20 @@ class GameState:
             for pindex, hand in self.hands.items()
             for c in hand
             if pindex not in {self.our_player_index, player_index}
+        }
+
+    def get_all_other_players_clued_cards(
+        self, player_index=None
+    ) -> Set[Tuple[int, int]]:
+        return {
+            (c.suit_index, c.rank)
+            for pindex, hand in self.hands.items()
+            for c in hand
+            if pindex not in {self.our_player_index, player_index}
+            and (
+                c.order in self.color_clued_card_orders
+                or c.order in self.rank_clued_card_orders
+            )
         }
 
     def set_variant_name(self, variant_name: str, num_players: int):
@@ -364,9 +402,13 @@ class GameState:
         return num
 
     def get_fully_known_card_orders(
-        self, player_index
+        self, player_index: int, candidates=True
     ) -> Dict[Tuple[int, int], List[int]]:
-        candidates_list = self.all_candidates_list[player_index]
+        candidates_list = (
+            self.all_candidates_list[player_index]
+            if candidates
+            else self.all_possibilities_list[player_index]
+        )
         orders = {}
         for i, candidates in enumerate(candidates_list):
             if len(candidates) == 1:
@@ -376,8 +418,12 @@ class GameState:
                 orders[singleton].append(self.hands[player_index][i].order)
         return orders
 
-    def get_doubleton_orders(self, player_index):
-        candidates_list = self.all_candidates_list[player_index]
+    def get_doubleton_orders(self, player_index: int, candidates=True):
+        candidates_list = (
+            self.all_candidates_list[player_index]
+            if candidates
+            else self.all_possibilities_list[player_index]
+        )
         orders = {}
         for i, candidates in enumerate(candidates_list):
             if len(candidates) == 2:
@@ -389,8 +435,12 @@ class GameState:
                 orders[doubleton_tup].append(self.hands[player_index][i].order)
         return orders
 
-    def get_tripleton_orders(self, player_index):
-        candidates_list = self.all_candidates_list[player_index]
+    def get_tripleton_orders(self, player_index: int, candidates=True):
+        candidates_list = (
+            self.all_candidates_list[player_index]
+            if candidates
+            else self.all_possibilities_list[player_index]
+        )
         orders = {}
         possible_tripleton_candidates = set()
         for i, candidates in enumerate(candidates_list):
@@ -405,95 +455,59 @@ class GameState:
                     orders[tripleton].append(self.hands[player_index][i].order)
         return orders
 
-    def _process_visible_cards(self):
+    def _process_visible_cards(self, candidates=True):
+        max_num_cards = self.max_num_cards
         for player_index in range(self.num_players):
-            candidates_list = self.all_candidates_list[player_index]
-            fully_known_card_orders = self.get_fully_known_card_orders(player_index)
+            candidates_list = (
+                self.all_candidates_list[player_index]
+                if candidates
+                else self.all_possibilities_list[player_index]
+            )
+            fk_orders = self.get_fully_known_card_orders(player_index, candidates)
             for i, candidates in enumerate(candidates_list):
+                this_order = self.hands[player_index][i].order
                 removed_cards = set()
                 for suit, rank in candidates:
                     copies_visible = self.get_copies_visible(player_index, suit, rank)
                     # copies visible is only for other players' hands and discard pile
                     # also incorporate information from my own hand
-                    for (
-                        fk_suit_index,
-                        fk_rank,
-                    ), orders in fully_known_card_orders.items():
+                    for (fk_si, fk_rank), orders in fk_orders.items():
                         for order in orders:
-                            if order != self.hands[player_index][i].order and (
-                                fk_suit_index,
-                                fk_rank,
-                            ) == (suit, rank):
+                            if order != this_order and (fk_si, fk_rank) == (suit, rank):
                                 copies_visible += 1
-                                print(
-                                    self.player_names[player_index]
-                                    + ": See a copy of "
-                                    + str((suit, rank))
-                                    + " (order "
-                                    + str(order)
-                                    + ") elsewhere in my hand, not slot "
-                                    + str(len(candidates_list) - i)
-                                )
 
-                    # TODO: handle reversed
-                    # TODO: remove all of this debugging
-                    elim1 = rank == 1 and copies_visible == 3
-                    elim2 = rank == 5 and copies_visible == 1
-                    elim3 = rank in {2, 3, 4} and copies_visible == 2
-                    elim4 = (
-                        SUITS[self.variant_name][suit] in DARK_SUIT_NAMES
-                        and copies_visible == 1
-                    )
-                    if elim1 or elim2 or elim3 or elim4:
+                    if max_num_cards[(suit, rank)] == copies_visible:
                         removed_cards.add((suit, rank))
-                        print(
-                            self.player_names[player_index]
-                            + ": Removed candidate "
-                            + str((suit, rank))
-                            + " from slot "
-                            + str(len(candidates_list) - i)
-                        )
 
                 candidates_list[i] = candidates_list[i].difference(removed_cards)
 
-    def _process_doubletons(self):
+    def _process_doubletons(self, candidates=True):
+        maxcds = self.max_num_cards
         for player_index in range(self.num_players):
             candidates_list = self.all_candidates_list[player_index]
-            doubleton_orders = self.get_doubleton_orders(player_index)
+            doubleton_orders = self.get_doubleton_orders(player_index, candidates)
             for doubleton, orders in doubleton_orders.items():
                 if len(orders) < 2:
                     continue
 
                 first, second = doubleton
-                firsts_visible = self.get_copies_visible(
-                    player_index, first[0], first[1]
-                )
-                seconds_visible = self.get_copies_visible(
-                    player_index, second[0], second[1]
-                )
-                num_of_firsts = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}[first[1]]
-                num_of_seconds = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}[second[1]]
-                if (
-                    len(orders)
-                    < num_of_firsts + num_of_seconds - firsts_visible - seconds_visible
-                ):
+                s1_vis = self.get_copies_visible(player_index, first[0], first[1])
+                s2_vis = self.get_copies_visible(player_index, second[0], second[1])
+                if len(orders) < maxcds[first] + maxcds[second] - s1_vis - s2_vis:
                     continue
 
                 for i, candidates in enumerate(candidates_list):
                     if self.hands[player_index][i].order not in orders:
                         p = self.player_names[player_index]
-                        print(
-                            f"{p}: Removed doubletons {first} and {second} "
-                            f"from slot {len(candidates_list) - i}"
-                        )
                         candidates_list[i] = candidates_list[i].difference(
                             {first, second}
                         )
 
-    def _process_tripletons(self):
+    def _process_tripletons(self, candidates=True):
+        maxcds = self.max_num_cards
         for player_index in range(self.num_players):
             candidates_list = self.all_candidates_list[player_index]
-            tripleton_orders = self.get_tripleton_orders(player_index)
+            tripleton_orders = self.get_tripleton_orders(player_index, candidates)
             for tripleton, orders in tripleton_orders.items():
                 if len(orders) < 3:
                     continue
@@ -502,28 +516,22 @@ class GameState:
                 s1_vis = self.get_copies_visible(player_index, first[0], first[1])
                 s2_vis = self.get_copies_visible(player_index, second[0], second[1])
                 s3_vis = self.get_copies_visible(player_index, third[0], third[1])
-                _1sts = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}[first[1]]
-                _2nds = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}[second[1]]
-                _3rds = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}[third[1]]
+                _1sts, _2nds, _3rds = maxcds[first], maxcds[second], maxcds[third]
                 if len(orders) < _1sts + _2nds + _3rds - s1_vis - s2_vis - s3_vis:
                     continue
 
                 for i, candidates in enumerate(candidates_list):
                     if self.hands[player_index][i].order not in orders:
                         p = self.player_names[player_index]
-                        print(
-                            f"{p}: Removed tripletons {first} and {second} and {third} "
-                            f"from slot {len(candidates_list) - i}"
-                        )
                         candidates_list[i] = candidates_list[i].difference(
                             {first, second, third}
                         )
 
-    def process_visible_cards(self):
+    def process_visible_cards(self, candidates=True):
         for _ in range(3):
-            self._process_visible_cards()
-            self._process_doubletons()
-            self._process_tripletons()
+            self._process_visible_cards(candidates)
+            self._process_doubletons(candidates)
+            self._process_tripletons(candidates)
 
     def print(self):
         our_player_name = self.player_names[self.our_player_index]
@@ -644,12 +652,14 @@ class GameState:
         raise NotImplementedError
 
     def get_cards_touched_dict(
-        self, variant_name: str, target_index: int, clue_type_values
+        self, target_index: int, clue_type_values: Tuple[int, int]
     ) -> Dict[Tuple[int, int, int], Set[Tuple[int, int]]]:
         target_hand = self.hands[target_index]
         clue_to_cards_touched = {}
         for clue_type, clue_value in clue_type_values:
-            cards_touched = get_all_touched_cards(clue_type, clue_value, variant_name)
+            cards_touched = get_all_touched_cards(
+                clue_type, clue_value, self.variant_name
+            )
             cards_touched_in_target_hand = [
                 card
                 for card in target_hand
@@ -665,6 +675,10 @@ class GameState:
         }
 
     def get_good_actions(self, player_index: int) -> Dict[str, List[int]]:
+        raise NotImplementedError
+
+    def get_legal_clues(self) -> Dict[Tuple[int, int, int], Set[Tuple[int, int]]]:
+        # (clue_value, clue_type, target_index) -> cards_touched
         raise NotImplementedError
 
     def write_note(self, order: int, note: str, candidates=None, append=True):
@@ -694,439 +708,3 @@ class GameState:
             self.notes[order] += " | " + _note
         else:
             self.notes[order] = _note
-
-
-def test_get_num_available_color_clues():
-    assert get_available_color_clues("No Variant") == [
-        "Red",
-        "Yellow",
-        "Green",
-        "Blue",
-        "Purple",
-    ]
-    assert get_available_color_clues("6 Suits") == [
-        "Red",
-        "Yellow",
-        "Green",
-        "Blue",
-        "Purple",
-        "Teal",
-    ]
-    assert get_available_color_clues("Black (6 Suits)") == [
-        "Red",
-        "Yellow",
-        "Green",
-        "Blue",
-        "Purple",
-        "Black",
-    ]
-    assert get_available_color_clues("Pink (6 Suits)") == [
-        "Red",
-        "Yellow",
-        "Green",
-        "Blue",
-        "Purple",
-        "Pink",
-    ]
-    assert get_available_color_clues("Brown (6 Suits)") == [
-        "Red",
-        "Yellow",
-        "Green",
-        "Blue",
-        "Purple",
-        "Brown",
-    ]
-    assert get_available_color_clues("Pink & Brown (6 Suits)") == [
-        "Red",
-        "Yellow",
-        "Green",
-        "Blue",
-        "Pink",
-        "Brown",
-    ]
-    assert get_available_color_clues("Black & Pink (5 Suits)") == [
-        "Red",
-        "Green",
-        "Blue",
-        "Black",
-        "Pink",
-    ]
-    assert get_available_color_clues("Omni (5 Suits)") == [
-        "Red",
-        "Yellow",
-        "Green",
-        "Blue",
-    ]
-    assert get_available_color_clues("Rainbow & Omni (5 Suits)") == [
-        "Red",
-        "Green",
-        "Blue",
-    ]
-    assert get_available_color_clues("Rainbow & White (4 Suits)") == ["Red", "Blue"]
-    assert get_available_color_clues("Null & Muddy Rainbow (4 Suits)") == [
-        "Red",
-        "Blue",
-    ]
-    assert get_available_color_clues("Null & Muddy Rainbow (4 Suits)") == [
-        "Red",
-        "Blue",
-    ]
-    assert get_available_color_clues("White & Null (3 Suits)") == ["Red"]
-    assert get_available_color_clues("Omni & Muddy Rainbow (3 Suits)") == ["Red"]
-
-
-def test_get_all_touched_cards():
-    assert get_all_touched_cards(COLOR_CLUE, 1, "No Variant") == {
-        (1, 1),
-        (1, 2),
-        (1, 3),
-        (1, 4),
-        (1, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "No Variant") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-        (4, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Rainbow (4 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Rainbow (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 3, "Pink (4 Suits)") == {
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Pink (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "White (4 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "White (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 3, "Brown (4 Suits)") == {
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Brown (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Muddy Rainbow (4 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Muddy Rainbow (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Light Pink (4 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Light Pink (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Omni (4 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Omni (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Null (4 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Null (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 1, "Rainbow & Omni (4 Suits)") == {
-        (1, 1),
-        (1, 2),
-        (1, 3),
-        (1, 4),
-        (1, 5),
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Rainbow & Omni (4 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 1),
-        (3, 2),
-        (3, 3),
-        (3, 4),
-        (3, 5),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Dark Rainbow (5 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (4, 1),
-        (4, 2),
-        (4, 3),
-        (4, 4),
-        (4, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Dark Pink (5 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-        (4, 1),
-        (4, 2),
-        (4, 3),
-        (4, 4),
-        (4, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Dark Brown (5 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Cocoa Rainbow (5 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (4, 1),
-        (4, 2),
-        (4, 3),
-        (4, 4),
-        (4, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Cocoa Rainbow (5 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Gray Pink (5 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-        (4, 1),
-        (4, 2),
-        (4, 3),
-        (4, 4),
-        (4, 5),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Dark Omni (5 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (4, 1),
-        (4, 2),
-        (4, 3),
-        (4, 4),
-        (4, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Dark Omni (5 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-        (4, 1),
-        (4, 2),
-        (4, 3),
-        (4, 4),
-        (4, 5),
-    }
-    assert get_all_touched_cards(RANK_CLUE, 2, "Dark Null (5 Suits)") == {
-        (0, 2),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 0, "Null & Prism (5 Suits)") == {
-        (0, 1),
-        (0, 2),
-        (0, 3),
-        (0, 4),
-        (0, 5),
-        (4, 1),
-        (4, 4),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 1, "Null & Prism (5 Suits)") == {
-        (1, 1),
-        (1, 2),
-        (1, 3),
-        (1, 4),
-        (1, 5),
-        (4, 2),
-        (4, 5),
-    }
-    assert get_all_touched_cards(COLOR_CLUE, 2, "Null & Prism (5 Suits)") == {
-        (2, 1),
-        (2, 2),
-        (2, 3),
-        (2, 4),
-        (2, 5),
-        (4, 3),
-    }
-
-
-def test_game_state_playables_criticals():
-    state = GameState()
-    state.set_variant_name("Black (6 Suits)")
-    state.stacks[2] += 1
-    state.stacks[5] += 2
-    state.discards = {(2, 1): 2, (2, 4): 1, (1, 2): 1, (3, 1): 2}
-    assert sorted(state.playables) == [(0, 1), (1, 1), (2, 2), (3, 1), (4, 1), (5, 3)]
-    assert sorted(state.criticals) == [
-        (0, 5),
-        (1, 2),
-        (1, 5),
-        (2, 4),
-        (2, 5),
-        (3, 1),
-        (3, 5),
-        (4, 5),
-        (5, 1),
-        (5, 2),
-        (5, 3),
-        (5, 4),
-        (5, 5),
-    ]
-
-
-if __name__ == "__main__":
-    np.random.seed(20000)
-    variant_name = "Prism (5 Suits)"
-    player_names = ["test0", "test1", "test2", "test3"]
-    states = {
-        player_name: GameState(variant_name, player_names, our_player_index)
-        for our_player_index, player_name in enumerate(player_names)
-    }
-    deck = get_random_deck(variant_name)
-    num_cards_per_player = {2: 5, 3: 5, 4: 4, 5: 4, 6: 3}[len(states)]
-    order = 0
-
-    for player_index, player_name in enumerate(states):
-        for i in range(num_cards_per_player):
-            card = deck.pop(0)
-            for player_iterate in states:
-                if player_iterate == player_name:
-                    states[player_iterate].handle_draw(player_index, order, -1, -1)
-                else:
-                    states[player_iterate].handle_draw(
-                        player_index, order, card.suit_index, card.rank
-                    )
-            order += 1
-
-    state = states["test0"]
-    state.stacks = [0, 2, 0, 0, 0]
-    state.discards[(0, 1)] = 2
-    state.discards[(4, 1)] = 2
-    state.all_candidates_list[state.our_player_index][3] = {(0, 1), (3, 1), (4, 1)}
-    state.all_candidates_list[state.our_player_index][2] = {(4, 1), (0, 1)}
-    state.all_candidates_list[state.our_player_index][1] = {(4, 1), (3, 1), (0, 1)}
-    state.all_candidates_list[state.our_player_index][0] = {(4, 1), (4, 5), (3, 1)}
-    state.process_visible_cards()
-
-    # state.handle_clue(clue_giver=3, target_index=0, clue_type=COLOR_CLUE, clue_value=3, card_orders=[3, 1])
-    # state.handle_clue(clue_giver=3, target_index=0, clue_type=RANK_CLUE, clue_value=3, card_orders=[3, 1])
-    # a = state.get_hat_residue(clue_giver=2, target_index=0, clue_type=RANK_CLUE, clue_value=2, card_orders=[0])
-
-    state.print()
-    print(state.get_legal_hat_clues())
-    # print(a)
-    2 / 0
-
-    test_get_num_available_color_clues()
-    test_get_all_touched_cards()
-    test_game_state_playables_criticals()
