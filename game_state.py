@@ -174,7 +174,12 @@ def is_whiteish_rainbowy(variant_name):
     return False
 
 
-def get_candidates_list_str(candidates_list, variant_name: str, actual_hand=None):
+def get_candidates_list_str(
+    candidates_list: List[Tuple[int, int]],
+    variant_name: str,
+    actual_hand=None,
+    poss_list=None,
+):
     output = ""
 
     for rank in range(1, 6):
@@ -183,16 +188,14 @@ def get_candidates_list_str(candidates_list, variant_name: str, actual_hand=None
             output += "  "
             for i, suit in enumerate(SUITS[variant_name]):
                 if (i, rank) in candidates:
+                    _char = "*"
                     if actual_hand is not None:
                         actual_card = actual_hand[hand_order]
-                        output += (
-                            "x"
-                            if (i == actual_card.suit_index)
-                            and (rank == actual_card.rank)
-                            else "*"
-                        )
-                    else:
-                        output += "*"
+                        if (i == actual_card.suit_index) and (rank == actual_card.rank):
+                            _char = "#"
+                    output += _char
+                elif poss_list is not None and (i, rank) in poss_list[hand_order]:
+                    output += "x"
                 else:
                     output += "."
 
@@ -402,72 +405,70 @@ class GameState:
         return num
 
     def get_fully_known_card_orders(
-        self, player_index: int, candidates=True
+        self, player_index: int, query_candidates=True
     ) -> Dict[Tuple[int, int], List[int]]:
-        candidates_list = (
+        poss_list = (
             self.all_candidates_list[player_index]
-            if candidates
+            if query_candidates
             else self.all_possibilities_list[player_index]
         )
         orders = {}
-        for i, candidates in enumerate(candidates_list):
-            if len(candidates) == 1:
-                singleton = list(candidates)[0]
+        for i, poss in enumerate(poss_list):
+            if len(poss) == 1:
+                singleton = list(poss)[0]
                 if singleton not in orders:
                     orders[singleton] = []
                 orders[singleton].append(self.hands[player_index][i].order)
         return orders
 
-    def get_doubleton_orders(self, player_index: int, candidates=True):
-        candidates_list = (
+    def get_doubleton_orders(self, player_index: int, query_candidates=True):
+        poss_list = (
             self.all_candidates_list[player_index]
-            if candidates
+            if query_candidates
             else self.all_possibilities_list[player_index]
         )
         orders = {}
-        for i, candidates in enumerate(candidates_list):
-            if len(candidates) == 2:
-                doubleton_tup = tuple(
-                    sorted([list(candidates)[0], list(candidates)[1]])
-                )
+        for i, poss in enumerate(poss_list):
+            if len(poss) == 2:
+                doubleton_tup = tuple(sorted([list(poss)[0], list(poss)[1]]))
                 if doubleton_tup not in orders:
                     orders[doubleton_tup] = []
                 orders[doubleton_tup].append(self.hands[player_index][i].order)
         return orders
 
-    def get_tripleton_orders(self, player_index: int, candidates=True):
-        candidates_list = (
+    def get_tripleton_orders(self, player_index: int, query_candidates=True):
+        poss_list = (
             self.all_candidates_list[player_index]
-            if candidates
+            if query_candidates
             else self.all_possibilities_list[player_index]
         )
         orders = {}
         possible_tripleton_candidates = set()
-        for i, candidates in enumerate(candidates_list):
-            if len(candidates) in {2, 3}:
-                for candidate in candidates:
+        for i, poss in enumerate(poss_list):
+            if len(poss) in {2, 3}:
+                for candidate in poss:
                     possible_tripleton_candidates.add(candidate)
 
         for tripleton in itertools.combinations(possible_tripleton_candidates, 3):
             orders[tripleton] = []
-            for i, candidates in enumerate(candidates_list):
-                if not len(candidates.difference(set(tripleton))):
+            for i, poss in enumerate(poss_list):
+                if not len(poss.difference(set(tripleton))):
                     orders[tripleton].append(self.hands[player_index][i].order)
         return orders
 
-    def _process_visible_cards(self, candidates=True):
+    def _process_visible_cards(self, query_candidates=True):
         max_num_cards = self.max_num_cards
         for player_index in range(self.num_players):
-            candidates_list = (
+            poss_list = (
                 self.all_candidates_list[player_index]
-                if candidates
+                if query_candidates
                 else self.all_possibilities_list[player_index]
             )
-            fk_orders = self.get_fully_known_card_orders(player_index, candidates)
-            for i, candidates in enumerate(candidates_list):
+            fk_orders = self.get_fully_known_card_orders(player_index, query_candidates)
+            for i, poss in enumerate(poss_list):
                 this_order = self.hands[player_index][i].order
                 removed_cards = set()
-                for suit, rank in candidates:
+                for suit, rank in poss:
                     copies_visible = self.get_copies_visible(player_index, suit, rank)
                     # copies visible is only for other players' hands and discard pile
                     # also incorporate information from my own hand
@@ -479,13 +480,17 @@ class GameState:
                     if max_num_cards[(suit, rank)] == copies_visible:
                         removed_cards.add((suit, rank))
 
-                candidates_list[i] = candidates_list[i].difference(removed_cards)
+                poss_list[i] = poss_list[i].difference(removed_cards)
 
-    def _process_doubletons(self, candidates=True):
+    def _process_doubletons(self, query_candidates=True):
         maxcds = self.max_num_cards
         for player_index in range(self.num_players):
-            candidates_list = self.all_candidates_list[player_index]
-            doubleton_orders = self.get_doubleton_orders(player_index, candidates)
+            poss_list = (
+                self.all_candidates_list[player_index]
+                if query_candidates
+                else self.all_possibilities_list[player_index]
+            )
+            doubleton_orders = self.get_doubleton_orders(player_index, query_candidates)
             for doubleton, orders in doubleton_orders.items():
                 if len(orders) < 2:
                     continue
@@ -496,18 +501,19 @@ class GameState:
                 if len(orders) < maxcds[first] + maxcds[second] - s1_vis - s2_vis:
                     continue
 
-                for i, candidates in enumerate(candidates_list):
+                for i, _ in enumerate(poss_list):
                     if self.hands[player_index][i].order not in orders:
-                        p = self.player_names[player_index]
-                        candidates_list[i] = candidates_list[i].difference(
-                            {first, second}
-                        )
+                        poss_list[i] = poss_list[i].difference({first, second})
 
-    def _process_tripletons(self, candidates=True):
+    def _process_tripletons(self, query_candidates=True):
         maxcds = self.max_num_cards
         for player_index in range(self.num_players):
-            candidates_list = self.all_candidates_list[player_index]
-            tripleton_orders = self.get_tripleton_orders(player_index, candidates)
+            poss_list = (
+                self.all_candidates_list[player_index]
+                if query_candidates
+                else self.all_possibilities_list[player_index]
+            )
+            tripleton_orders = self.get_tripleton_orders(player_index, query_candidates)
             for tripleton, orders in tripleton_orders.items():
                 if len(orders) < 3:
                     continue
@@ -520,18 +526,18 @@ class GameState:
                 if len(orders) < _1sts + _2nds + _3rds - s1_vis - s2_vis - s3_vis:
                     continue
 
-                for i, candidates in enumerate(candidates_list):
+                for i, _ in enumerate(poss_list):
                     if self.hands[player_index][i].order not in orders:
-                        p = self.player_names[player_index]
-                        candidates_list[i] = candidates_list[i].difference(
-                            {first, second, third}
-                        )
+                        poss_list[i] = poss_list[i].difference({first, second, third})
 
-    def process_visible_cards(self, candidates=True):
+    def process_visible_cards(self):
         for _ in range(3):
-            self._process_visible_cards(candidates)
-            self._process_doubletons(candidates)
-            self._process_tripletons(candidates)
+            self._process_visible_cards(True)
+            self._process_doubletons(True)
+            self._process_tripletons(True)
+            self._process_visible_cards(False)
+            self._process_doubletons(False)
+            self._process_tripletons(False)
 
     def print(self):
         our_player_name = self.player_names[self.our_player_index]
@@ -556,6 +562,7 @@ class GameState:
         output += "\n"
         for i, name in enumerate(self.player_names):
             candidates_list = self.all_candidates_list[i]
+            poss_list = self.all_possibilities_list[i]
             output += (
                 name
                 + "\nOrders: "
@@ -571,12 +578,13 @@ class GameState:
                 list(reversed(candidates_list)),
                 self.variant_name,
                 list(reversed(self.hands[i])),
+                list(reversed(poss_list)),
             )
             output += "\n  "
             for card in reversed(self.hands[i]):
                 if (
                     card.order in self.rank_clued_card_orders
-                    and self.color_clued_card_orders
+                    and card.order in self.color_clued_card_orders
                 ):
                     output += "+"
                 elif card.order in self.rank_clued_card_orders:
@@ -617,12 +625,16 @@ class GameState:
         card = hand[card_index]
         del hand[card_index]
         del self.all_candidates_list[player_index][card_index]
+        del self.all_possibilities_list[player_index][card_index]
         return card
 
     def handle_draw(self, player_index, order, suit_index, rank):
         new_card = Card(order=order, suit_index=suit_index, rank=rank)
         self.hands[player_index].append(new_card)
         self.all_candidates_list[player_index].append(get_all_cards(self.variant_name))
+        self.all_possibilities_list[player_index].append(
+            get_all_cards(self.variant_name)
+        )
         self.process_visible_cards()
         return new_card
 
@@ -649,7 +661,49 @@ class GameState:
         clue_value: int,
         card_orders,
     ):
-        raise NotImplementedError
+        all_cards_touched_by_clue = get_all_touched_cards(
+            clue_type, clue_value, self.variant_name
+        )
+        touched_cards = []
+        candidates_list = self.all_candidates_list[target_index]
+        poss_list = self.all_possibilities_list[target_index]
+
+        for i, card in enumerate(self.hands[target_index]):
+            if card.order in card_orders:
+                touched_cards.append(card)
+                new_candidates = candidates_list[i].intersection(
+                    all_cards_touched_by_clue
+                )
+                new_possibilities = poss_list[i].intersection(all_cards_touched_by_clue)
+                poss_list[i] = new_possibilities
+                if not len(new_candidates):
+                    self.write_note(card.order, note="Positive clue conflict!")
+                    candidates_list[i] = new_possibilities
+                else:
+                    candidates_list[i] = new_candidates
+            else:
+                new_candidates = candidates_list[i].difference(
+                    all_cards_touched_by_clue
+                )
+                new_possibilities = poss_list[i].difference(all_cards_touched_by_clue)
+                poss_list[i] = new_possibilities
+                if not len(new_candidates):
+                    self.write_note(card.order, note="Negative clue conflict!")
+                    candidates_list[i] = new_possibilities
+                else:
+                    candidates_list[i] = new_candidates
+
+        for order in card_orders:
+            if clue_type == RANK_CLUE:
+                if order not in self.rank_clued_card_orders:
+                    self.rank_clued_card_orders[order] = []
+                self.rank_clued_card_orders[order].append(clue_value)
+            elif clue_type == COLOR_CLUE:
+                if order not in self.color_clued_card_orders:
+                    self.color_clued_card_orders[order] = []
+                self.color_clued_card_orders[order].append(clue_value)
+
+        return touched_cards
 
     def get_cards_touched_dict(
         self, target_index: int, clue_type_values: Tuple[int, int]

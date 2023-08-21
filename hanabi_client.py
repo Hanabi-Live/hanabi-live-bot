@@ -20,10 +20,13 @@ def is_int(x):
 class HanabiClient:
     def __init__(self, url, cookie, bot_to_join: str, convention: str):
         self.bot_to_join = bot_to_join
+        self.convention_name = (
+            convention.replace("_", "").replace("-", "").replace(" ", "").lower()
+        )
         self.game_state_cls: Type[GameState] = {
             "encoder": EncoderGameState,
             "hgroup": HGroupGameState,
-        }[convention.replace("_", "").replace("-", "").replace(" ", "").lower()]
+        }[self.convention_name]
 
         # Initialize all class variables
         self.commandHandlers = {}
@@ -217,7 +220,9 @@ class HanabiClient:
         self.send("reattend", {"tableID": table_id})
 
     def chat_create_table(self):
-        self.send("tableCreate", {"name": "bots", "maxPlayers": 6})
+        self.send(
+            "tableCreate", {"name": f"{self.convention_name} bots", "maxPlayers": 6}
+        )
 
     def chat_set_variant(self, variant_name: str):
         if variant_name is not None:

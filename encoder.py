@@ -329,42 +329,7 @@ class EncoderGameState(GameState):
         clue_value: int,
         card_orders,
     ):
-        all_cards_touched_by_clue = get_all_touched_cards(
-            clue_type, clue_value, self.variant_name
-        )
-        touched_cards = []
-        candidates_list = self.all_candidates_list[target_index]
         order_to_index = self.order_to_index
-
-        for i, card in enumerate(self.hands[target_index]):
-            if card.order in card_orders:
-                touched_cards.append(card)
-                new_candidates = candidates_list[i].intersection(
-                    all_cards_touched_by_clue
-                )
-                if not len(new_candidates):
-                    self.write_note(
-                        card.order,
-                        note="existing positive clue conflicts with earlier info",
-                    )
-                    candidates_list[i] = all_cards_touched_by_clue
-                else:
-                    candidates_list[i] = new_candidates
-            else:
-                new_candidates = candidates_list[i].difference(
-                    all_cards_touched_by_clue
-                )
-                if not len(new_candidates):
-                    self.write_note(
-                        card.order,
-                        note="existing negative clue conflicts with earlier info",
-                    )
-                    candidates_list[i] = get_all_cards(self.variant_name).difference(
-                        all_cards_touched_by_clue
-                    )
-                else:
-                    candidates_list[i] = new_candidates
-
         identity_to_residue = self.identity_to_residue
         residue_to_identities = self.residue_to_identities
         hat_residue = self.get_hat_residue(
@@ -411,7 +376,8 @@ class EncoderGameState(GameState):
 
         if self.our_player_index != clue_giver:
             my_residue = (hat_residue - sum_of_others_residues) % self.mod_base
-            print("My (" + self.our_player_name + ") residue = " + str(my_residue))
+            print(f"My ({self.our_player_name})) residue = {my_residue}.")
+            print(f"Hat candidates: {residue_to_identities[my_residue]}")
             left_non_hat_clued = self.get_leftmost_non_hat_clued_card(
                 self.our_player_index
             )
@@ -426,18 +392,9 @@ class EncoderGameState(GameState):
                 )
                 self.hat_clued_card_orders.add(left_non_hat_clued.order)
 
-        # mark clued last since we want hat logic to act on what was in the hand prior to the clue
-        for order in card_orders:
-            if clue_type == RANK_CLUE:
-                if order not in self.rank_clued_card_orders:
-                    self.rank_clued_card_orders[order] = []
-                self.rank_clued_card_orders[order].append(clue_value)
-            elif clue_type == COLOR_CLUE:
-                if order not in self.color_clued_card_orders:
-                    self.color_clued_card_orders[order] = []
-                self.color_clued_card_orders[order].append(clue_value)
-
-        return touched_cards
+        return super().handle_clue(
+            clue_giver, target_index, clue_type, clue_value, card_orders
+        )
 
     def get_special_hat_clues(
         self, variant_name: str, target_index: int, clue_mapping_only=False

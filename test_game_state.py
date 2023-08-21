@@ -1,6 +1,8 @@
 import game_state
-from game_state import Card, GameState
+from game_state import COLOR_CLUE, RANK_CLUE, Card, GameState, get_all_cards
+from test_functions import all_rank, all_suit
 import numpy as np
+import datetime as dt
 
 
 def get_random_deck(variant_name: str):
@@ -99,51 +101,53 @@ def test_process_visible_cards():
     # p2: p2 [14], b1 [13], g3 [12], r2 [11], b5 [10]
     all_cards = game_state.get_all_cards(variant_name)
     for player_index in range(3):
-        for candidates in STATES_3P[player_index].our_candidates:
+        for possibilities in STATES_3P[player_index].our_possibilities:
             if player_index == 0:
                 check_eq(
-                    candidates, all_cards.difference({(0, 5), (3, 5), (5, 2), (5, 4)})
+                    possibilities,
+                    all_cards.difference({(0, 5), (3, 5), (5, 2), (5, 4)}),
                 )
             elif player_index == 1:
-                check_eq(candidates, all_cards.difference({(3, 5), (5, 1)}))
+                check_eq(possibilities, all_cards.difference({(3, 5), (5, 1)}))
             else:
                 check_eq(
-                    candidates, all_cards.difference({(0, 5), (5, 2), (5, 4), (5, 1)})
+                    possibilities,
+                    all_cards.difference({(0, 5), (5, 2), (5, 4), (5, 1)}),
                 )
 
     state0 = STATES_3P[0]
     state0.discards[(3, 1)] = 2
     state0.process_visible_cards()
     check_eq(
-        state0.our_candidates[0],
+        state0.our_possibilities[0],
         all_cards.difference({(0, 5), (3, 5), (5, 2), (5, 4), (3, 1)}),
     )
     state0.discards[(4, 5)] = 1
     state0.process_visible_cards()
     check_eq(
-        state0.our_candidates[0],
+        state0.our_possibilities[0],
         all_cards.difference({(0, 5), (3, 5), (5, 2), (5, 4), (3, 1), (4, 5)}),
     )
 
-    state0.our_candidates[1] = {(5, 1)}
+    state0.our_possibilities[1] = {(5, 1)}
     state0.process_visible_cards()
     check_eq(
-        state0.our_candidates[2],
+        state0.our_possibilities[2],
         all_cards.difference({(0, 5), (3, 5), (5, 2), (5, 4), (3, 1), (4, 5), (5, 1)}),
     )
-    state0.our_candidates[0] = {(1, 2)}
-    state0.our_candidates[2] = {(1, 2)}
+    state0.our_possibilities[0] = {(1, 2)}
+    state0.our_possibilities[2] = {(1, 2)}
     state0.process_visible_cards()
     check_eq(
-        state0.our_candidates[3],
+        state0.our_possibilities[3],
         all_cards.difference(
             {(0, 5), (3, 5), (5, 2), (5, 4), (3, 1), (4, 5), (5, 1), (1, 2)}
         ),
     )
-    state0.our_candidates[3] = {(1, 5)}
+    state0.our_possibilities[3] = {(1, 5)}
     state0.process_visible_cards()
     check_eq(
-        state0.our_candidates[4],
+        state0.our_possibilities[4],
         all_cards.difference(
             {(0, 5), (3, 5), (5, 2), (5, 4), (3, 1), (4, 5), (5, 1), (1, 2), (1, 5)}
         ),
@@ -151,43 +155,77 @@ def test_process_visible_cards():
 
     # test doubletons
     state1 = STATES_3P[1]
-    state1.our_candidates[0] = {(3, 3), (5, 4)}
-    state1.our_candidates[1] = {(3, 3), (5, 4)}
+    state1.our_possibilities[0] = {(3, 3), (5, 4)}
+    state1.our_possibilities[1] = {(3, 3), (5, 4)}
     state1.process_visible_cards()
-    check_eq(state1.our_candidates[3], all_cards.difference({(3, 5), (5, 1)}))
+    check_eq(state1.our_possibilities[3], all_cards.difference({(3, 5), (5, 1)}))
 
-    state1.our_candidates[2] = {(3, 3), (5, 4)}
+    state1.our_possibilities[2] = {(3, 3), (5, 4)}
     state1.process_visible_cards()
     check_eq(
-        state1.our_candidates[3],
+        state1.our_possibilities[3],
         all_cards.difference({(3, 5), (5, 1), (3, 3), (5, 4)}),
     )
-    state1.our_candidates[0] = {(5, 4)}
+    state1.our_possibilities[0] = {(5, 4)}
     state1.process_visible_cards()
-    check_eq(state1.our_candidates[1], {(3, 3)})
-    check_eq(state1.our_candidates[2], {(3, 3)})
+    check_eq(state1.our_possibilities[1], {(3, 3)})
+    check_eq(state1.our_possibilities[2], {(3, 3)})
 
     # test tripletons
     state2 = STATES_3P[2]
-    state2.our_candidates[0] = {(4, 2), (5, 3), (2, 5)}
-    state2.our_candidates[1] = {(4, 2), (5, 3), (2, 5)}
-    state2.our_candidates[2] = {(4, 2), (5, 3), (2, 5)}
+    state2.our_possibilities[0] = {(4, 2), (5, 3), (2, 5)}
+    state2.our_possibilities[1] = {(4, 2), (5, 3), (2, 5)}
+    state2.our_possibilities[2] = {(4, 2), (5, 3), (2, 5)}
     state2.process_visible_cards()
     check_eq(
-        state2.our_candidates[3], all_cards.difference({(0, 5), (5, 2), (5, 4), (5, 1)})
+        state2.our_possibilities[3],
+        all_cards.difference({(0, 5), (5, 2), (5, 4), (5, 1)}),
     )
 
     state2.discards[(4, 2)] = 1
     state2.process_visible_cards()
     check_eq(
-        state2.our_candidates[3],
+        state2.our_possibilities[3],
         all_cards.difference({(0, 5), (5, 2), (5, 4), (5, 1), (4, 2), (5, 3), (2, 5)}),
     )
 
 
+def test_handle_clue():
+    variant_name = "Black (6 Suits)"
+    STATES_3P = create_game_states(3, variant_name, 20000)
+    # p0: p3 [ 4], g1 [ 3], y2 [ 2], k1 [ 1], p1 [ 0]
+    # p1: k4 [ 9], y4 [ 8], b3 [ 7], r5 [ 6], k2 [ 5]
+    # p2: p2 [14], b1 [13], g3 [12], r2 [11], b5 [10]
+    state = STATES_3P[1]
+    state.handle_clue(0, 1, COLOR_CLUE, 5, [5, 9])
+    state.handle_clue(0, 1, RANK_CLUE, 4, [8, 9])
+
+    check_eq(state.our_possibilities[0], {(5, 2), (5, 3), (5, 5)})
+    check_eq(
+        state.our_possibilities[1],
+        get_all_cards(variant_name).difference(
+            all_suit(5).union(all_rank(4, range(6))).union({(3, 5)})
+        ),
+    )
+    check_eq(
+        state.our_possibilities[2],
+        get_all_cards(variant_name).difference(
+            all_suit(5).union(all_rank(4, range(6))).union({(3, 5)})
+        ),
+    )
+    check_eq(state.our_possibilities[3], {(0, 4), (1, 4), (2, 4), (3, 4), (4, 4)})
+    check_eq(state.our_possibilities[4], {(5, 4)})
+    check_eq(state.rank_clued_card_orders, {8: [4], 9: [4]})
+    check_eq(state.color_clued_card_orders, {5: [5], 9: [5]})
+    state.print()
+
+
 if __name__ == "__main__":
-    test_max_num_cards()
-    test_trash()
-    test_criticals()
-    test_process_visible_cards()
-    print("All tests passed!")
+    t0 = dt.datetime.now()
+    # test_max_num_cards()
+    # test_trash()
+    # test_criticals()
+    # test_process_visible_cards()
+    test_handle_clue()
+    t1 = dt.datetime.now()
+    print(f"All tests passed in {(t1 - t0).total_seconds():.2f}s!")
