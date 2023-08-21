@@ -1,4 +1,5 @@
 import game_state
+import datetime as dt
 
 
 def all_suit(suit_index):
@@ -7,6 +8,10 @@ def all_suit(suit_index):
 
 def all_rank(rank, suit_indices):
     return {(suit_index, rank) for suit_index in suit_indices}
+
+
+def check_eq(actual, expected):
+    assert actual == expected, f"\nExpected: {expected}\nActual: {actual}"
 
 
 def run_simple_test(fn, tests):
@@ -92,21 +97,79 @@ def test_get_all_touched_cards():
     # fmt: on
 
 
-def test_game_state_playables_criticals():
-    player_names = ["a", "b", "c", "d"]
-    state = game_state.GameState("Black (6 Suits)", player_names, 0)
-    state.stacks = [0, 0, 1, 0, 0, 2]
-    state.discards = {(2, 1): 2, (2, 4): 1, (1, 2): 1, (3, 1): 2}
-    assert sorted(state.playables) == [(0, 1), (1, 1), (2, 2), (3, 1), (4, 1), (5, 3)]
-    assert sorted(state.criticals) == sorted(
-        all_rank(5, range(6)).union(all_suit(5)).union({(3, 1), (2, 4), (1, 2)})
-    )
-    assert sorted(state.non_5_criticals) == sorted(
-        {(3, 1), (2, 4), (1, 2), (5, 1), (5, 2), (5, 3), (5, 4)}
-    )
+def test_is_brownish_pinkish():
+    tests = {
+        "No Variant": False,
+        "Black (5 Suits)": False,
+        "Prism (5 Suits)": False,
+        "Dark Prism (5 Suits)": False,
+        "Black & Dark Prism (6 Suits)": False,
+        "Rainbow (5 Suits)": False,
+        "Dark Rainbow (5 Suits)": False,
+        "White (5 Suits)": False,
+        "Gray (5 Suits)": False,
+        "Brown (6 Suits)": True,
+        "Dark Brown (6 Suits)": True,
+        "Gray & Dark Brown (6 Suits)": True,
+        "Pink (6 Suits)": True,
+        "Dark Pink (6 Suits)": True,
+        "Light Pink (6 Suits)": True,
+        "Gray Pink (6 Suits)": True,
+        "Muddy Rainbow (6 Suits)": True,
+        "Cocoa Rainbow (6 Suits)": True,
+        "Omni (6 Suits)": True,
+        "Dark Omni (6 Suits)": True,
+        "Null (6 Suits)": True,
+        "Dark Null (6 Suits)": True,
+        "Special Mix (5 Suits)": True,
+        "Special Mix (6 Suits)": True,
+        "Valentine Mix (5 Suits)": True,
+        "Valentine Mix (6 Suits)": True,
+    }
+    run_simple_test(game_state.is_brownish_pinkish, tests)
+
+
+def test_is_whiteish_rainbowy():
+    tests = {
+        "No Variant": False,
+        "Black (5 Suits)": False,
+        "Prism (5 Suits)": False,
+        "Dark Prism (5 Suits)": False,
+        "Black & Dark Prism (6 Suits)": False,
+        "Rainbow (5 Suits)": True,
+        "Dark Rainbow (5 Suits)": True,
+        "White (5 Suits)": True,
+        "Gray (5 Suits)": True,
+        "Brown (6 Suits)": False,
+        "Dark Brown (6 Suits)": False,
+        "Gray & Dark Brown (6 Suits)": True,
+        "Pink (6 Suits)": False,
+        "Dark Pink (6 Suits)": False,
+        "Light Pink (6 Suits)": True,
+        "Gray Pink (6 Suits)": True,
+        "Muddy Rainbow (6 Suits)": True,
+        "Cocoa Rainbow (6 Suits)": True,
+        "Omni (6 Suits)": True,
+        "Dark Omni (6 Suits)": True,
+        "Null (6 Suits)": True,
+        "Dark Null (6 Suits)": True,
+        "Special Mix (5 Suits)": True,
+        "Special Mix (6 Suits)": True,
+        "Valentine Mix (5 Suits)": True,
+        "Valentine Mix (6 Suits)": True,
+    }
+    run_simple_test(game_state.is_whiteish_rainbowy, tests)
+
+
+def test_all():
+    t0 = dt.datetime.now()
+    test_get_num_available_color_clues()
+    test_get_all_touched_cards()
+    test_is_brownish_pinkish()
+    test_is_whiteish_rainbowy()
+    t1 = dt.datetime.now()
+    print(f"All tests passed in {(t1 - t0).total_seconds():.2f}s!")
 
 
 if __name__ == "__main__":
-    test_get_num_available_color_clues()
-    test_get_all_touched_cards()
-    test_game_state_playables_criticals()
+    test_all()

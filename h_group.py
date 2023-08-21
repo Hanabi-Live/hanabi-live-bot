@@ -1,4 +1,4 @@
-from game_state import GameState, get_all_touched_cards, RANK_CLUE, COLOR_CLUE
+from game_state import GameState, get_all_touched_cards, RANK_CLUE, COLOR_CLUE, Card
 from typing import Dict, List, Tuple, Optional, Set
 
 FinessePath = Tuple[Tuple[int, int, int]]
@@ -41,8 +41,8 @@ class HGroupGameState(GameState):
         self, player_index: int, orders_touched: List[int]
     ) -> Optional[int]:
         chop_order = self.get_chop_order(player_index)
-        cards_touched = []
-        newly_touched_cards = []
+        cards_touched: List[Card] = []
+        newly_touched_cards: List[Card] = []
         for card in reversed(self.hands[player_index]):  # iterate left to right
             if card.order not in orders_touched:
                 continue
@@ -57,9 +57,9 @@ class HGroupGameState(GameState):
             ):
                 newly_touched_cards.append(card)
         if len(newly_touched_cards):
-            return newly_touched_cards[0]
+            return newly_touched_cards[0].order
         if len(cards_touched):
-            return cards_touched[0]
+            return cards_touched[0].order
         return None
 
     def get_good_actions(self, player_index: int) -> Dict[str, List[int]]:
@@ -116,25 +116,10 @@ class HGroupGameState(GameState):
         clue_value: int,
         card_orders,
     ):
-        all_cards_touched_by_clue = get_all_touched_cards(
-            clue_type, clue_value, self.variant_name
-        )
-        touched_cards = []
         candidates_list = self.all_candidates_list[target_index]
         focus_of_clue = self.get_focus_of_clue(target_index, card_orders)
-        print("*************** FOCUS OF CLUE IS", focus_of_clue)
 
         for i, card in enumerate(self.hands[target_index]):
-            if card.order in card_orders:
-                touched_cards.append(card)
-                candidates_list[i] = candidates_list[i].intersection(
-                    all_cards_touched_by_clue
-                )
-            else:
-                candidates_list[i] = candidates_list[i].difference(
-                    all_cards_touched_by_clue
-                )
-
             if card.order == focus_of_clue:
                 if clue_type == RANK_CLUE and clue_value not in {2, 5}:
                     candidates_list[i] = candidates_list[i].intersection(
@@ -145,17 +130,9 @@ class HGroupGameState(GameState):
                         self.playables.union(self.non_5_criticals)
                     )
 
-        for order in card_orders:
-            if clue_type == RANK_CLUE:
-                if order not in self.rank_clued_card_orders:
-                    self.rank_clued_card_orders[order] = []
-                self.rank_clued_card_orders[order].append(clue_value)
-            elif clue_type == COLOR_CLUE:
-                if order not in self.color_clued_card_orders:
-                    self.color_clued_card_orders[order] = []
-                self.color_clued_card_orders[order].append(clue_value)
-
-        return touched_cards
+        return super().handle_clue(
+            clue_giver, target_index, clue_type, clue_value, card_orders
+        )
 
     def get_legal_clues(self) -> Dict[Tuple[int, int, int], Set[Tuple[int, int]]]:
         # (clue_value, clue_type, target_index) -> cards_touched

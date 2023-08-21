@@ -417,12 +417,23 @@ class HanabiClient:
         print("self.everyone_connected = " + str(self.everyone_connected))
 
     def clock(self, data):
-        print("Clock: " + str(data))
+        """
+        {
+            'tableID': 2345, 'times': [-2268, -1015, -1039], 'activePlayerIndex': 1,
+            'timeTaken': 0
+        }
+        """
         self.action_time = True
         self._go(data)
 
     def user(self, data):
-        print("User: " + str(data))
+        """
+        {
+            'userID': 81697, 'name': 'kingCLUE', 'status': 0, 'tableID': 0,
+            'hyphenated': False, 'inactive': False
+        }
+        """
+        pass
 
     def note_list_player(self, data):
         print("Note List Player: " + str(data))
@@ -486,7 +497,6 @@ class HanabiClient:
         next_player_has_safe_action = False
         my_chop_order = state.get_chop_order(state.our_player_index)
         np_chop_order = state.get_chop_order(state.next_player_index)
-        np_chop = state.get_card(np_chop_order)
 
         for action_type, orders in next_player_good_actions.items():
             if action_type == "seen_in_other_hand":
@@ -497,23 +507,21 @@ class HanabiClient:
                 break
 
         if not next_player_has_safe_action and state.clue_tokens > 0:
-            # TODO: expand scope of playables
-            # TODO: implement other vars lol
-            if (np_chop.suit_index, np_chop.rank) in state.playables:
-                self.clue(
-                    state.next_player_index, COLOR_CLUE, np_chop.suit_index, table_id
-                )
-                return
-            elif (np_chop.suit_index, np_chop.rank) in state.criticals:
-                self.clue(state.next_player_index, RANK_CLUE, np_chop.rank, table_id)
-                return
-        else:
-            if len(my_good_actions["trash"]):
-                self.discard(my_good_actions["trash"][0], table_id)
-                return
-            else:
-                self.discard(my_chop_order, table_id)
-                return
+            if np_chop_order is not None:
+                np_chop = state.get_card(np_chop_order)
+                if (np_chop.suit_index, np_chop.rank) in state.playables:
+                    self.clue(
+                        state.next_player_index,
+                        COLOR_CLUE,
+                        np_chop.suit_index,
+                        table_id,
+                    )
+                    return
+                elif (np_chop.suit_index, np_chop.rank) in state.criticals:
+                    self.clue(
+                        state.next_player_index, RANK_CLUE, np_chop.rank, table_id
+                    )
+                    return
 
         # play if nothing urgent to do
         if len(my_good_actions["playable"]):
@@ -599,7 +607,11 @@ class HanabiClient:
             self.discard(my_chop_order, table_id)
             return
 
-        self.clue(state.next_player_index, RANK_CLUE, np_chop.rank, table_id)
+        if np_chop_order is not None:
+            burn_clue_card = state.get_card(np_chop_order)
+        else:
+            burn_clue_card = state.hands[state.next_player_index][0]
+        self.clue(state.next_player_index, RANK_CLUE, burn_clue_card.rank, table_id)
 
     def encoder(self, state: EncoderGameState, table_id: int):
         # TODO: implement elim

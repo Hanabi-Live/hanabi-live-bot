@@ -192,7 +192,7 @@ def get_candidates_list_str(
                     if actual_hand is not None:
                         actual_card = actual_hand[hand_order]
                         if (i == actual_card.suit_index) and (rank == actual_card.rank):
-                            _char = "#"
+                            _char = "O"
                     output += _char
                 elif poss_list is not None and (i, rank) in poss_list[hand_order]:
                     output += "x"
