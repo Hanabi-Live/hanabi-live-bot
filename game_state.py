@@ -40,10 +40,13 @@ class Card:
     def __str__(self):
         if self.suit_index == -1:
             return "Unknown"
-        return str((self.suit_index, self.rank))
+        return str(self.to_tuple())
 
     def __repr__(self):
         return self.__str__()
+
+    def to_tuple(self) -> Tuple[int, int]:
+        return (self.suit_index, self.rank)
 
 
 def get_available_color_clues(variant_name: str):
@@ -365,6 +368,30 @@ class GameState:
     def is_critical(self, candidates) -> bool:
         return not len(candidates.difference(self.criticals)) and len(candidates)
 
+    def is_clued(self, order) -> bool:
+        return (
+            order in self.color_clued_card_orders
+            or order in self.rank_clued_card_orders
+        )
+
+    def get_clued_orders(self, player_index: int) -> List[int]:
+        # returns orders from right to left
+        return [
+            x.order
+            for x in self.hands[player_index]
+            if x.order in self.color_clued_card_orders
+            or x.order in self.rank_clued_card_orders
+        ]
+
+    def get_unclued_orders(self, player_index: int) -> List[int]:
+        # returns orders from right to left
+        return [
+            x.order
+            for x in self.hands[player_index]
+            if x.order not in self.color_clued_card_orders
+            and x.order not in self.rank_clued_card_orders
+        ]
+
     def get_all_other_players_cards(self, player_index=None) -> Set[Tuple[int, int]]:
         return {
             (c.suit_index, c.rank)
@@ -652,6 +679,18 @@ class GameState:
             self.discards[(suit_index, rank)] += 1
         self.process_visible_cards()
         return Card(order, suit_index, rank)
+
+    def super_handle_clue(
+        self,
+        clue_giver: int,
+        target_index: int,
+        clue_type: int,
+        clue_value: int,
+        card_orders,
+    ):
+        return self.handle_clue(
+            clue_giver, target_index, clue_type, clue_value, card_orders
+        )
 
     def handle_clue(
         self,

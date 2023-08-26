@@ -221,7 +221,8 @@ class HanabiClient:
 
     def chat_create_table(self):
         self.send(
-            "tableCreate", {"name": f"{self.convention_name} bots", "maxPlayers": 6}
+            "tableCreate",
+            {"name": f"{self.convention_name} solitaire", "maxPlayers": 6},
         )
 
     def chat_set_variant(self, variant_name: str):

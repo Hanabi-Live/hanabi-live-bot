@@ -16,13 +16,13 @@ def check_eq(actual, expected):
 
 def run_simple_test(fn, tests):
     for input, exp in tests.items():
-        act = fn(input) if isinstance(input, str) else fn(*input)
+        act = fn(input) if not isinstance(input, tuple) else fn(*input)
         fn_name = fn.__name__
         assert act == exp, f"{fn_name}\nInput: {input}\nExpected: {exp}\nActual: {act}"
     print(f"{len(tests)} tests for {fn_name} passed!")
 
 
-def test_get_num_available_color_clues():
+def test_get_available_color_clues():
     tests = {
         "No Variant": ["Red", "Yellow", "Green", "Blue", "Purple"],
         "6 Suits": ["Red", "Yellow", "Green", "Blue", "Purple", "Teal"],
@@ -163,7 +163,7 @@ def test_is_whiteish_rainbowy():
 
 def test_all():
     t0 = dt.datetime.now()
-    test_get_num_available_color_clues()
+    test_get_available_color_clues()
     test_get_all_touched_cards()
     test_is_brownish_pinkish()
     test_is_whiteish_rainbowy()
