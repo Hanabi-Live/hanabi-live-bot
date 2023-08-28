@@ -359,13 +359,19 @@ class GameState:
         player_index, i = self.order_to_index[order]
         return self.hands[player_index][i]
 
-    def is_playable(self, candidates) -> bool:
+    def is_playable(self, candidates: Set[Tuple[int, int]]) -> bool:
         return not len(candidates.difference(self.playables)) and len(candidates)
 
-    def is_trash(self, candidates) -> bool:
+    def is_playable_card(self, card: Card) -> bool:
+        return (card.suit_index, card.rank) in self.playables
+
+    def is_trash(self, candidates: Set[Tuple[int, int]]) -> bool:
         return not len(candidates.difference(self.trash)) and len(candidates)
 
-    def is_critical(self, candidates) -> bool:
+    def is_trash_card(self, card: Card) -> bool:
+        return (card.suit_index, card.rank) in self.trash
+
+    def is_critical(self, candidates: Set[Tuple[int, int]]) -> bool:
         return not len(candidates.difference(self.criticals)) and len(candidates)
 
     def is_clued(self, order) -> bool:
@@ -432,7 +438,7 @@ class GameState:
         return num
 
     def get_fully_known_card_orders(
-        self, player_index: int, query_candidates=True
+        self, player_index: int, query_candidates=True, keyed_on_order=False
     ) -> Dict[Tuple[int, int], List[int]]:
         poss_list = (
             self.all_candidates_list[player_index]
@@ -443,9 +449,12 @@ class GameState:
         for i, poss in enumerate(poss_list):
             if len(poss) == 1:
                 singleton = list(poss)[0]
-                if singleton not in orders:
-                    orders[singleton] = []
-                orders[singleton].append(self.hands[player_index][i].order)
+                if keyed_on_order:
+                    orders[self.hands[player_index][i].order] = singleton
+                else:
+                    if singleton not in orders:
+                        orders[singleton] = []
+                    orders[singleton].append(self.hands[player_index][i].order)
         return orders
 
     def get_doubleton_orders(self, player_index: int, query_candidates=True):

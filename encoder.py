@@ -69,35 +69,35 @@ def get_playful_mod_table(variant_name: str, preferred_modulus=None):
             mod_table = {
                 False: {
                     0: [(0, 0)],
-                    1: [(0, -1), (3, -1)],
-                    2: [(1, -1), (4, -1)],
-                    3: [(2, -1), (5, -1)],
-                    4: [(0, -2)],
-                    5: [(1, -2)],
-                    6: [(2, -2)],
-                    7: [(3, -2)],
-                    8: [(4, -2)],
-                    9: [(5, -2)],
-                    10: [(0, -3), (3, -3)],
-                    11: [(1, -3), (4, -3)],
-                    12: [(2, -3), (5, -3)],
-                    13: [(0, -4), (2, -4), (4, -4)],
-                    14: [(1, -4), (3, -4), (5, -4)],
+                    1: [(0, -1), (2, -1), (4, -1)],
+                    2: [(1, -1), (3, -1), (5, -1)],
+                    3: [(0, -2)],
+                    4: [(1, -2)],
+                    5: [(2, -2)],
+                    6: [(3, -2)],
+                    7: [(4, -2)],
+                    8: [(5, -2)],
+                    9: [(0, -3), (3, -3)],
+                    10: [(1, -3), (4, -3)],
+                    11: [(2, -3), (5, -3)],
+                    12: [(0, -4), (3, -4)],
+                    13: [(1, -4), (4, -4)],
+                    14: [(2, -4), (5, -4)],
                     15: [(0, -5), (1, -5), (2, -5), (3, -5), (4, -5), (5, -5)],
                 },
                 True: {
                     0: [(0, 0)],
-                    1: [(0, -1), (3, -1)],
-                    2: [(1, -1), (4, -1)],
-                    3: [(2, -1), (5, -1)],
-                    4: [(0, -2)],
-                    5: [(1, -2)],
-                    6: [(2, -2)],
-                    7: [(3, -2)],
-                    8: [(4, -2)],
-                    9: [(5, -2)],
-                    10: [(0, -3), (2, -3)],
-                    11: [(1, -3), (3, -3)],
+                    1: [(0, -1), (2, -1), (4, -1)],
+                    2: [(1, -1), (3, -1), (5, -1)],
+                    3: [(0, -2)],
+                    4: [(1, -2)],
+                    5: [(2, -2)],
+                    6: [(3, -2)],
+                    7: [(4, -2)],
+                    8: [(5, -2)],
+                    9: [(0, -3), (3, -3)],
+                    10: [(1, -3)],
+                    11: [(2, -3)],
                     12: [(4, -3)],
                     13: [(5, -3)],
                     14: [(0, -4), (1, -4), (2, -4), (3, -4), (4, -4), (5, -4)],
@@ -388,7 +388,7 @@ class EncoderGameState(GameState):
     def identity_to_residue(self) -> Dict[Tuple[int, int], int]:
         result = {}
         trash_residue = 0
-        most_1s_played = self.num_1s_played >= len(SUITS[self.variant_name]) / 2.0
+        most_1s_played = self.num_1s_played > len(SUITS[self.variant_name]) / 2.0
 
         for residue, identities in self.mod_table[most_1s_played].items():
             # trash is marked as (0, 0)
@@ -504,20 +504,35 @@ class EncoderGameState(GameState):
     def get_special_hat_clues(
         self, variant_name: str, target_index: int, clue_mapping_only=False
     ) -> Dict:
-        dct = {
-            "Valentine Mix (6 Suits)": {
+        all_3color_wr_vars = [
+            var
+            for var in SUITS
+            if len(get_available_color_clues(var)) == 3 and is_whiteish_rainbowy(var)
+        ]
+        base_dct = {
+            var: {
                 0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
-                1: [(RANK_CLUE, 2), (COLOR_CLUE, 0)],
+                1: [(COLOR_CLUE, 0), (RANK_CLUE, 2)],
                 2: [(COLOR_CLUE, 1), (RANK_CLUE, 3)],
-                3: [(RANK_CLUE, 4)],
-            },
-            "Valentine Mix (5 Suits)": {
-                0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
-                1: [(RANK_CLUE, 2), (COLOR_CLUE, 0)],
-                2: [(COLOR_CLUE, 1), (RANK_CLUE, 3)],
-                3: [(RANK_CLUE, 4)],
-            },
-        }.get(variant_name, {})
+                3: [(COLOR_CLUE, 2), (RANK_CLUE, 4)],
+            }
+            for var in all_3color_wr_vars
+        }
+
+        base_dct["Valentine Mix (6 Suits)"] = {
+            0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
+            1: [(RANK_CLUE, 2), (COLOR_CLUE, 0)],
+            2: [(COLOR_CLUE, 1), (RANK_CLUE, 3)],
+            3: [(RANK_CLUE, 4)],
+        }
+        base_dct["Valentine Mix (5 Suits)"] = {
+            0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
+            1: [(RANK_CLUE, 2), (COLOR_CLUE, 0)],
+            2: [(COLOR_CLUE, 1), (RANK_CLUE, 3)],
+            3: [(RANK_CLUE, 4)],
+        }
+
+        dct = base_dct.get(variant_name, {})
 
         if clue_mapping_only:
             return dct if len(dct) else None
@@ -706,6 +721,31 @@ class EncoderGameState(GameState):
             raise NotImplementedError
         else:
             raise NotImplementedError
+
+    def evaluate_clue_score(self, clue_value, clue_type, target_index) -> int:
+        all_cards_touched_by_clue = get_all_touched_cards(
+            clue_type, clue_value, self.variant_name
+        )
+        good_card_indices = [
+            i
+            for i in range(len(self.hands[target_index]))
+            if not self.is_trash_card(self.hands[target_index][i])
+        ]
+        candidates_list = self.all_candidates_list[target_index]
+        score = 1
+
+        for i in good_card_indices:
+            if self.hands[target_index][i].to_tuple() in all_cards_touched_by_clue:
+                new_candidates = candidates_list[i].intersection(
+                    all_cards_touched_by_clue
+                )
+            else:
+                new_candidates = candidates_list[i].difference(
+                    all_cards_touched_by_clue
+                )
+            score *= len(new_candidates)
+
+        return -score
 
     def get_hat_residue(
         self,

@@ -222,7 +222,7 @@ class HanabiClient:
     def chat_create_table(self):
         self.send(
             "tableCreate",
-            {"name": f"{self.convention_name} solitaire", "maxPlayers": 6},
+            {"name": f"{self.convention_name} solitaire", "maxPlayers": 5},
         )
 
     def chat_set_variant(self, variant_name: str):
@@ -617,8 +617,6 @@ class HanabiClient:
     def encoder(self, state: EncoderGameState, table_id: int):
         # TODO: implement elim
         # TODO: implement logic for other variants
-        # TODO: improve clue selection when multiple legal clues available
-
         good_actions = {
             player_index: state.get_good_actions(player_index)
             for player_index in range(state.num_players)
@@ -634,21 +632,52 @@ class HanabiClient:
                 my_good_actions["playable"],
                 key=lambda order: min([x[1] for x in state.get_candidates(order)]),
             )
+
+            # priority 0
+            fk_orders = state.get_fully_known_card_orders(
+                state.our_player_index, keyed_on_order=True
+            )
+            for order in sorted_playables:
+                if order in fk_orders:
+                    identity = fk_orders[order]
+                    next_playable = (identity[0], identity[1] + 1)
+                    all_others_hc_cards = state.get_all_other_players_hat_clued_cards()
+                    if next_playable in all_others_hc_cards:
+                        print("PRIO 0")
+                        self.play(order, table_id)
+                        return
+
+            # priority 1
+            key_crits = [
+                order
+                for order in sorted_playables
+                if state.is_critical(state.get_candidates(order))
+                and max([x[1] for x in state.get_candidates(order)]) <= 3
+            ]
+            if len(key_crits):
+                print("PRIO 1")
+                self.play(key_crits[0], table_id)
+                return
+
+            # priority 2
             playable_fives = [
                 order
                 for order in my_good_actions["playable"]
                 if min([x[1] for x in state.get_candidates(order)]) == 5
             ]
             if len(playable_fives):
+                print("PRIO 2")
                 self.play(playable_fives[0], table_id)
                 return
 
+            # priority 3
             unique_playables = [
                 order
                 for order in sorted_playables
                 if order not in my_good_actions["dupe_in_other_hand"]
             ]
             if len(unique_playables):
+                print("PRIO 3")
                 self.play(unique_playables[0], table_id)
                 return
 
@@ -695,6 +724,9 @@ class HanabiClient:
             if state.pace <= state.num_players - 2:
                 print("PACE IS TOO LOW, NEED TO PLAY!!!")
                 self.play(sorted_playables[0], table_id)
+            elif state.clue_tokens >= 8:
+                print("AT 8 TOKENS, CAN't DISCARD!!!")
+                self.play(sorted_playables[0], table_id)
             else:
                 print("NO DUPES WILL DEFINITELY RESOLVE, GDing this instead")
                 self.discard(sorted_playables[0], table_id)
@@ -716,45 +748,49 @@ class HanabiClient:
             num_useful_cards += 1
 
         # clues that get a lot of useful cards are good
-        legal_hat_clues = state.get_legal_clues()
-        if 0 <= state.score_pct < 0.24:
-            token_threshold = 2
-            num_useful_cards_touched = int(0.78 * min(4, state.num_players - 1))
-        elif 0.24 <= state.score_pct < 0.48:
-            token_threshold = 2
-            num_useful_cards_touched = int(0.68 * min(4, state.num_players - 1))
-        elif 0.48 <= state.score_pct < 0.72:
-            token_threshold = 2
-            num_useful_cards_touched = int(0.58 * min(4, state.num_players - 1))
-        else:
-            token_threshold = 2
-            num_useful_cards_touched = int(0.48 * min(4, state.num_players - 1))
+        legal_clues = state.get_legal_clues()
+        legal_clue_to_score = {
+            (clue_value, clue_type, target_index): state.evaluate_clue_score(
+                clue_value, clue_type, target_index
+            )
+            for (clue_value, clue_type, target_index) in legal_clues
+        }
+        legal_hat_clues = sorted(legal_clue_to_score.items(), key=lambda x: x[-1])
+        print("All legal clues available:")
+        for x, score in legal_hat_clues:
+            print(f"{x}: {score}")
 
-        if (
-            state.clue_tokens >= token_threshold
-            and num_useful_cards >= num_useful_cards_touched
-        ):
-            for (
-                clue_value,
-                clue_type,
-                target_index,
-            ), cards_touched in legal_hat_clues.items():
-                print(
-                    "USEFUL CLUE! Score pct =",
-                    round(state.score_pct, 3),
-                    ", we see",
-                    str(lnhcs),
-                )
-                self.clue(target_index, clue_type, clue_value, table_id)
-                return
+        if state.clue_tokens >= 2:
+            if 0 <= state.score_pct < 0.24:
+                r = {2: 0.79, 3: 0.76, 4: 0.7, 5: 0.6, 6: 0.45, 7: 0.3, 8: 0.0}[
+                    min(8, state.clue_tokens + max(0, 4 - state.pace))
+                ]
+                num_useful_cards_touched = int(r * min(4, state.num_players - 1))
+            elif 0.24 <= state.score_pct < 0.48:
+                r = {2: 0.7, 3: 0.67, 4: 0.6, 5: 0.48, 6: 0.36, 7: 0.2, 8: 0.0}[
+                    min(8, state.clue_tokens + max(0, 4 - state.pace))
+                ]
+                num_useful_cards_touched = int(r * min(4, state.num_players - 1))
+            elif 0.48 <= state.score_pct < 0.72:
+                r = {2: 0.6, 3: 0.55, 4: 0.48, 5: 0.4, 6: 0.3, 7: 0.17, 8: 0.0}[
+                    min(8, state.clue_tokens + max(0, 4 - state.pace))
+                ]
+                num_useful_cards_touched = int(r * min(4, state.num_players - 1))
+            else:
+                r = {2: 0.48, 3: 0.36, 4: 0.24, 5: 0.16, 6: 0.1, 7: 0.05, 8: 0.0}[
+                    min(8, state.clue_tokens + max(0, 4 - state.pace))
+                ]
+                num_useful_cards_touched = int(r * min(4, state.num_players - 1))
+
+            if num_useful_cards >= num_useful_cards_touched:
+                for (clue_value, clue_type, target_index), _ in legal_hat_clues:
+                    print(f"USEFUL CLUE! Score = {state.score_pct:.3f}, we see {lnhcs}")
+                    self.clue(target_index, clue_type, clue_value, table_id)
+                    return
 
         # basic stall in endgame
         if state.clue_tokens > 0 and (state.pace < 3 or state.num_cards_in_deck == 1):
-            for (
-                clue_value,
-                clue_type,
-                target_index,
-            ), cards_touched in legal_hat_clues.items():
+            for (clue_value, clue_type, target_index), _ in legal_hat_clues:
                 print("STALL CLUE!")
                 self.clue(target_index, clue_type, clue_value, table_id)
                 return
@@ -763,11 +799,7 @@ class HanabiClient:
         if state.clue_tokens >= state.num_players and (
             state.num_cards_in_deck <= state.num_players / 2
         ):
-            for (
-                clue_value,
-                clue_type,
-                target_index,
-            ), cards_touched in legal_hat_clues.items():
+            for (clue_value, clue_type, target_index), _ in legal_hat_clues:
                 print("STALL CLUE 2!")
                 self.clue(target_index, clue_type, clue_value, table_id)
                 return
@@ -795,11 +827,7 @@ class HanabiClient:
 
         # unless we have no safe actions
         if state.clue_tokens > 0 and len(legal_hat_clues):
-            for (
-                clue_value,
-                clue_type,
-                target_index,
-            ), cards_touched in legal_hat_clues.items():
+            for (clue_value, clue_type, target_index), _ in legal_hat_clues:
                 print("CLUE BECAUSE NO SAFE ACTION!")
                 self.clue(target_index, clue_type, clue_value, table_id)
                 return
