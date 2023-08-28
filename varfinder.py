@@ -73,24 +73,26 @@ def get_missing_vars(
 
 
 if __name__ == "__main__":
+    exclude_substrings = [
+        "Throw",
+        "Matryoshka",
+        "Dual-Color",
+        "Ambig",
+        "Reversed",
+        "Up or Down",
+        "Alternating",
+        "Duck",
+        "Cow",
+        "Odds and Evens",
+        "Synesthesia",
+    ]
     vars = get_missing_vars(
         "yagami_black",
         5,
         include_dark_suits=False,
         num_suits=5,
-        exclude_substrings=[
-            "Throw",
-            "Matryoshka",
-            "Dual-Color",
-            "Ambig",
-            "Reversed",
-            "Up or Down",
-            "Alternating",
-            "Duck",
-            "Cow",
-            "Odds and Evens",
-            "Synesthesia",
-        ],
+        exclude_substrings=exclude_substrings,
+        shorthand=False,
     )
     print(vars)
     print(len(vars))

@@ -49,6 +49,37 @@ class Card:
         return (self.suit_index, self.rank)
 
 
+def get_available_rank_clues(variant_name: str):
+    for substr in [
+        "Pink-Ones",
+        "Light-Pink-Ones",
+        "Omni-Ones",
+        "Brown-Ones",
+        "Muddy-Rainbow-Ones",
+        "Null-Ones",
+        "Deceptive-Ones",
+    ]:
+        if substr in variant_name:
+            return [2, 3, 4, 5]
+
+    for substr in [
+        "Pink-Fives",
+        "Light-Pink-Fives",
+        "Omni-Fives",
+        "Brown-Fives",
+        "Muddy-Rainbow-Fives",
+        "Null-Fives",
+        "Deceptive-Fives",
+    ]:
+        if substr in variant_name:
+            return [1, 2, 3, 4]
+
+    if "Odds and Evens" in variant_name:
+        return [1, 2]
+
+    return [1, 2, 3, 4, 5]
+
+
 def get_available_color_clues(variant_name: str):
     # TODO - handle nonstandard suits like ambiguous, dual color, etc.
     available_color_clues = []
@@ -101,13 +132,11 @@ def get_all_touched_cards(
     # TODO - handle special 1s and 5s
     available_color_clues = get_available_color_clues(variant_name)
     prism_touch = list(zip(available_color_clues * 5, [1, 2, 3, 4, 5]))
-
     cards = set()
     for i, suit in enumerate(SUITS[variant_name]):
         for rank in range(1, 6):
             if clue_type == COLOR_CLUE:
                 if suit in {
-                    available_color_clues[clue_value],
                     "Rainbow",
                     "Dark Rainbow",
                     "Muddy Rainbow",
@@ -116,11 +145,51 @@ def get_all_touched_cards(
                     "Dark Omni",
                 }:
                     cards.add((i, rank))
+
+                if suit in available_color_clues[clue_value]:
+                    if (
+                        "White-Ones" in variant_name
+                        or "Light-Pink-Ones" in variant_name
+                        or "Null-Ones" in variant_name
+                    ) and rank == 1:
+                        continue
+                    elif (
+                        "White-Fives" in variant_name
+                        or "Light-Pink-Fives" in variant_name
+                        or "Null-Fives" in variant_name
+                    ) and rank == 5:
+                        continue
+                    else:
+                        cards.add((i, rank))
+
                 if (
                     suit in {"Prism", "Dark Prism"}
                     and (available_color_clues[clue_value], rank) in prism_touch
                 ):
                     cards.add((i, rank))
+
+                if (
+                    (
+                        "Rainbow-Ones" in variant_name
+                        or "Muddy-Rainbow-Ones" in variant_name
+                        or "Omni-Ones" in variant_name
+                    )
+                    and rank == 1
+                    and suit not in {"White", "Light Pink", "Null"}
+                ):
+                    cards.add((i, rank))
+
+                if (
+                    (
+                        "Rainbow-Fives" in variant_name
+                        or "Muddy-Rainbow-Fives" in variant_name
+                        or "Omni-Fives" in variant_name
+                    )
+                    and rank == 5
+                    and suit not in {"White", "Light Pink", "Null"}
+                ):
+                    cards.add((i, rank))
+
             elif clue_type == RANK_CLUE:
                 if suit in {
                     "Pink",
@@ -142,6 +211,26 @@ def get_all_touched_cards(
                         "Dark Null",
                     }
                     and clue_value == rank
+                ):
+                    cards.add((i, rank))
+                if (
+                    (
+                        "Pink-Ones" in variant_name
+                        or "Light-Pink-Ones" in variant_name
+                        or "Omni-Ones" in variant_name
+                    )
+                    and rank == 1
+                    and suit not in {"Brown", "Muddy Rainbow", "Null"}
+                ):
+                    cards.add((i, rank))
+                if (
+                    (
+                        "Pink-Fives" in variant_name
+                        or "Light-Pink-Fives" in variant_name
+                        or "Omni-Fives" in variant_name
+                    )
+                    and rank == 5
+                    and suit not in {"Brown", "Muddy Rainbow", "Null"}
                 ):
                     cards.add((i, rank))
     return cards

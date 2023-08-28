@@ -22,6 +22,52 @@ def run_simple_test(fn, tests):
     print(f"{len(tests)} tests for {fn_name} passed!")
 
 
+def test_get_available_rank_clues():
+    tests = {
+        "Light-Pink-Fives & Light Pink (5 Suits)": [1, 2, 3, 4],
+        "Omni-Fives (5 Suits)": [1, 2, 3, 4],
+        "Deceptive-Fives & Omni (5 Suits)": [1, 2, 3, 4],
+        "Muddy-Rainbow-Fives & Rainbow (5 Suits)": [1, 2, 3, 4],
+        "Brown-Fives & Null (5 Suits)": [1, 2, 3, 4],
+        "Null-Fives (5 Suits)": [1, 2, 3, 4],
+        "Pink-Fives & Pink (5 Suits)": [1, 2, 3, 4],
+        "Rainbow-Fives & Prism (5 Suits)": [1, 2, 3, 4, 5],
+        "White-Fives & Prism (5 Suits)": [1, 2, 3, 4, 5],
+        "Brown-Ones & White (5 Suits)": [2, 3, 4, 5],
+        "Pink-Ones & Omni (5 Suits)": [2, 3, 4, 5],
+        "Null-Ones & Muddy Rainbow (5 Suits)": [2, 3, 4, 5],
+        "Omni-Ones & White (5 Suits)": [2, 3, 4, 5],
+        "Muddy-Rainbow-Ones & Omni (5 Suits)": [2, 3, 4, 5],
+        "Deceptive-Ones (5 Suits)": [2, 3, 4, 5],
+        "Light-Pink-Ones & Muddy Rainbow (5 Suits)": [2, 3, 4, 5],
+        "White-Ones & Light Pink (5 Suits)": [1, 2, 3, 4, 5],
+        "Rainbow-Ones & Omni (5 Suits)": [1, 2, 3, 4, 5],
+        "Odds and Evens & Rainbow (5 Suits)": [1, 2],
+        "Odds and Evens (5 Suits)": [1, 2],
+        "No Variant": [1, 2, 3, 4, 5],
+        "6 Suits": [1, 2, 3, 4, 5],
+        "Black (6 Suits)": [1, 2, 3, 4, 5],
+        "Pink (6 Suits)": [1, 2, 3, 4, 5],
+        "Brown (6 Suits)": [1, 2, 3, 4, 5],
+        "Pink & Brown (6 Suits)": [1, 2, 3, 4, 5],
+        "Dark Pink & Gray (6 Suits)": [1, 2, 3, 4, 5],
+        "Black & Pink (5 Suits)": [1, 2, 3, 4, 5],
+        "Pink & Cocoa Rainbow (5 Suits)": [1, 2, 3, 4, 5],
+        "Omni & Dark Brown (5 Suits)": [1, 2, 3, 4, 5],
+        "Omni (5 Suits)": [1, 2, 3, 4, 5],
+        "Rainbow & Omni (5 Suits)": [1, 2, 3, 4, 5],
+        "Rainbow & White (4 Suits)": [1, 2, 3, 4, 5],
+        "Null & Muddy Rainbow (4 Suits)": [1, 2, 3, 4, 5],
+        "White & Null (3 Suits)": [1, 2, 3, 4, 5],
+        "Omni & Muddy Rainbow (3 Suits)": [1, 2, 3, 4, 5],
+        "Valentine Mix (5 Suits)": [1, 2, 3, 4, 5],
+        "Valentine Mix (6 Suits)": [1, 2, 3, 4, 5],
+        "Special Mix (5 Suits)": [1, 2, 3, 4, 5],
+        "Special Mix (6 Suits)": [1, 2, 3, 4, 5],
+    }
+    run_simple_test(game_state.get_available_rank_clues, tests)
+
+
 def test_get_available_color_clues():
     tests = {
         "No Variant": ["Red", "Yellow", "Green", "Blue", "Purple"],
@@ -76,7 +122,29 @@ def test_get_all_touched_cards():
         (C, 2, "Dark Prism (6 Suits)"): all_suit(2).union({(5, 3)}),
         (C, 3, "Dark Prism (6 Suits)"): all_suit(3).union({(5, 4)}),
         (C, 4, "Dark Prism (6 Suits)"): all_suit(4).union({(5, 5)}),
+        (C, 1, "Rainbow-Ones & Omni (5 Suits)"): all_suit(1).union(all_suit(4)).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Rainbow-Ones & White (5 Suits)"): all_suit(1).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Rainbow-Ones & Light Pink (5 Suits)"): all_suit(1).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Muddy-Rainbow-Ones & Omni (5 Suits)"): all_suit(1).union(all_suit(4)).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Muddy-Rainbow-Ones & White (5 Suits)"): all_suit(1).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Muddy-Rainbow-Ones & Light Pink (5 Suits)"): all_suit(1).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Omni-Ones & Omni (5 Suits)"): all_suit(1).union(all_suit(4)).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Omni-Ones & White (5 Suits)"): all_suit(1).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "Omni-Ones & Light Pink (5 Suits)"): all_suit(1).union({(0, 1), (2, 1), (3, 1)}),
+        (C, 1, "White-Ones & Light Pink (5 Suits)"): all_suit(1).difference({(1, 1)}),
+        (C, 1, "White-Ones & Rainbow (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "White-Ones & Muddy Rainbow (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "White-Ones & Omni (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "Light-Pink-Ones & Light Pink (5 Suits)"): all_suit(1).difference({(1, 1)}),
+        (C, 1, "Light-Pink-Ones & Rainbow (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "Light-Pink-Ones & Muddy Rainbow (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "Light-Pink-Ones & Omni (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "Null-Ones & Light Pink (5 Suits)"): all_suit(1).difference({(1, 1)}),
+        (C, 1, "Null-Ones & Rainbow (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "Null-Ones & Muddy Rainbow (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
+        (C, 1, "Null-Ones & Omni (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
 
+        # TODO: add deceptive and odds/evens
         (R, 2, "No Variant"): all_rank(2, range(5)),
         (R, 2, "Rainbow (4 Suits)"): all_rank(2, range(4)),
         (R, 2, "Pink (4 Suits)"): all_rank(2, range(4)).union(all_suit(3)),
@@ -92,6 +160,24 @@ def test_get_all_touched_cards():
         (R, 2, "Null (5 Suits)"): all_rank(2, range(4)),
         (R, 2, "Dark Null (5 Suits)"): all_rank(2, range(4)),
         (R, 2, "Rainbow & Omni (4 Suits)"): all_rank(2, range(3)).union(all_suit(3)),
+        (R, 2, "Pink-Ones & Omni (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).union(all_suit(4)),
+        (R, 2, "Pink-Ones & Brown (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).difference({(4, 1)}),
+        (R, 2, "Pink-Ones & Muddy Rainbow (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).difference({(4, 1)}),
+        (R, 2, "Light-Pink-Ones & Omni (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).union(all_suit(4)),
+        (R, 2, "Light-Pink-Ones & Brown (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).difference({(4, 1)}),
+        (R, 2, "Light-Pink-Ones & Muddy Rainbow (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).difference({(4, 1)}),
+        (R, 2, "Omni-Ones & Omni (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).union(all_suit(4)),
+        (R, 2, "Omni-Ones & Brown (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).difference({(4, 1)}),
+        (R, 2, "Omni-Ones & Muddy Rainbow (5 Suits)"): all_rank(2, range(4)).union(all_rank(1, range(4))).difference({(4, 1)}),
+        (R, 2, "Brown-Ones & Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Brown-Ones & Light Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Brown-Ones & Omni (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Muddy-Rainbow-Ones & Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Muddy-Rainbow-Ones & Light Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Muddy-Rainbow-Ones & Omni (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Null-Ones & Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Null-Ones & Light Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 2, "Null-Ones & Omni (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
     }
     run_simple_test(game_state.get_all_touched_cards, tests)
     # fmt: on
@@ -163,6 +249,7 @@ def test_is_whiteish_rainbowy():
 
 def test_all():
     t0 = dt.datetime.now()
+    test_get_available_rank_clues()
     test_get_available_color_clues()
     test_get_all_touched_cards()
     test_is_brownish_pinkish()
