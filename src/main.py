@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 
-# An example reference bot for the Hanab Live website
-# Written by Zamiel
-
 import sys
-from util import printf
 
 # The "dotenv" module does not work in Python 2
 if sys.version_info < (3, 0):
@@ -20,11 +16,12 @@ import requests
 
 # Imports (local application)
 from hanabi_client import HanabiClient
+from util import printf
 
 
-# Authenticate, login to the WebSocket server, and run forever
+# Authenticate, login to the WebSocket server, and run forever.
 def main():
-    # Check to see if the ".env" file exists
+    # Check to see if the ".env" file exists.
     env_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), ".env")
     if not os.path.exists(env_path):
         printf(
@@ -32,7 +29,7 @@ def main():
         )
         sys.exit(1)
 
-    # Load environment variables from the ".env" file
+    # Load environment variables from the ".env" file.
     dotenv.load_dotenv()
 
     use_localhost = os.getenv("USE_LOCALHOST")
@@ -59,15 +56,15 @@ def main():
         printf('error: "HANABI_PASSWORD" is blank in the ".env" file')
         sys.exit(1)
 
-    # Get an authenticated cookie by POSTing to the login handler
+    # Get an authenticated cookie by POSTing to the login handler.
     if use_localhost:
         # Assume that we are not using a certificate if we are running a local
-        # version of the server
+        # version of the server.
         protocol = "http"
         ws_protocol = "ws"
         host = "localhost"
     else:
-        # The official site uses HTTPS
+        # The official site uses HTTPS.
         protocol = "https"
         ws_protocol = "wss"
         host = "hanab.live"
@@ -81,19 +78,19 @@ def main():
         {
             "username": username,
             "password": password,
-            # This is normally the version of the JavaScript client,
-            # but it will also accept "bot" as a valid version
+            # This is normally supposed to be the version of the JavaScript
+            # client, but the server will also accept "bot" as a valid version.
             "version": "bot",
         },
     )
 
-    # Handle failed authentication and other errors
+    # Handle failed authentication and other errors.
     if resp.status_code != 200:
         printf("Authentication failed:")
         printf(resp.text)
         sys.exit(1)
 
-    # Scrape the cookie from the response
+    # Scrape the cookie from the response.
     cookie = ""
     for header in resp.headers.items():
         if header[0] == "Set-Cookie":

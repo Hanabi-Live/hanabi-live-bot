@@ -7,12 +7,9 @@
   // Linux line endings are used in this project
   "files.eol": "\n",
 
-  // Use "black" to automatically format Python files
-  // https://github.com/psf/black
-  "python.formatting.provider": "black",
-
   // Automatically run the "black" formatter when a Python file is saved
   "[python]": {
     "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-python.black-formatter",
   },
 }

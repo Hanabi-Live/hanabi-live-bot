@@ -9,6 +9,6 @@ class ACTION:
     RANK_CLUE = 3
 
 
-# The maximum amount of clues
-# (and the amount of clues that players start the game with)
+# The maximum amount of clues (and the amount of clues that players start the
+# game with).
 MAX_CLUE_NUM = 8
