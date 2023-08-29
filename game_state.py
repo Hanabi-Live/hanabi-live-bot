@@ -175,7 +175,15 @@ def get_all_touched_cards(
                         or "Omni-Ones" in variant_name
                     )
                     and rank == 1
-                    and suit not in {"White", "Light Pink", "Null"}
+                    and suit
+                    not in {
+                        "White",
+                        "Light Pink",
+                        "Null",
+                        "Gray",
+                        "Gray Pink",
+                        "Dark Null",
+                    }
                 ):
                     cards.add((i, rank))
 
@@ -186,7 +194,15 @@ def get_all_touched_cards(
                         or "Omni-Fives" in variant_name
                     )
                     and rank == 5
-                    and suit not in {"White", "Light Pink", "Null"}
+                    and suit
+                    not in {
+                        "White",
+                        "Light Pink",
+                        "Null",
+                        "Gray",
+                        "Gray Pink",
+                        "Dark Null",
+                    }
                 ):
                     cards.add((i, rank))
 
@@ -220,7 +236,15 @@ def get_all_touched_cards(
                         or "Omni-Ones" in variant_name
                     )
                     and rank == 1
-                    and suit not in {"Brown", "Muddy Rainbow", "Null"}
+                    and suit
+                    not in {
+                        "Brown",
+                        "Muddy Rainbow",
+                        "Null",
+                        "Dark Brown",
+                        "Cocoa Rainbow",
+                        "Dark Null",
+                    }
                 ):
                     cards.add((i, rank))
                 if (
@@ -230,7 +254,15 @@ def get_all_touched_cards(
                         or "Omni-Fives" in variant_name
                     )
                     and rank == 5
-                    and suit not in {"Brown", "Muddy Rainbow", "Null"}
+                    and suit
+                    not in {
+                        "Brown",
+                        "Muddy Rainbow",
+                        "Null",
+                        "Dark Brown",
+                        "Cocoa Rainbow",
+                        "Dark Null",
+                    }
                 ):
                     cards.add((i, rank))
     return cards
