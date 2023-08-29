@@ -847,7 +847,15 @@ class GameState:
     ) -> Dict[Tuple[int, int, int], Set[Tuple[int, int]]]:
         target_hand = self.hands[target_index]
         clue_to_cards_touched = {}
+        available_color_clues = get_available_color_clues(self.variant_name)
+        available_rank_clues = get_available_rank_clues(self.variant_name)
         for clue_type, clue_value in clue_type_values:
+            # prevent illegal clues from being given
+            if clue_type == COLOR_CLUE and clue_value >= len(available_color_clues):
+                continue
+            if clue_type == RANK_CLUE and clue_value not in available_rank_clues:
+                continue
+
             cards_touched = get_all_touched_cards(
                 clue_type, clue_value, self.variant_name
             )

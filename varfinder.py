@@ -85,14 +85,24 @@ if __name__ == "__main__":
         "Cow",
         "Odds and Evens",
         "Synesthesia",
+        "-Ones",
+        "-Fives",
+        "Clue Starved",
+        "Funnels",
+        "Chimneys",
     ]
+    include_substrings = None
+
+    exclude_substrings = None
+    include_substrings = ["Omni-Ones"]
     vars = get_missing_vars(
         "yagami_black",
         5,
         include_dark_suits=False,
-        num_suits=5,
+        num_suits=6,
+        include_substrings=include_substrings,
         exclude_substrings=exclude_substrings,
-        shorthand=False,
+        shorthand=True,
     )
     print(vars)
     print(len(vars))
