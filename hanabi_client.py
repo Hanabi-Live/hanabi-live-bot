@@ -18,7 +18,14 @@ def is_int(x):
 
 
 class HanabiClient:
-    def __init__(self, url, cookie, bot_to_join: str, convention: str):
+    def __init__(
+        self,
+        url,
+        cookie,
+        bot_to_join: str,
+        convention: str,
+        disconnect_on_game_end: bool,
+    ):
         self.bot_to_join = bot_to_join
         self.convention_name = (
             convention.replace("_", "").replace("-", "").replace(" ", "").lower()
@@ -27,6 +34,7 @@ class HanabiClient:
             "encoder": EncoderGameState,
             "hgroup": HGroupGameState,
         }[self.convention_name]
+        self.disconnect_on_game_end = disconnect_on_game_end
 
         # Initialize all class variables
         self.commandHandlers = {}
@@ -96,8 +104,9 @@ class HanabiClient:
             try:
                 self.commandHandlers[command](data)
             except Exception as e:
+                en = e.__class__.__name__
                 print("**************************\n" * 3)
-                print('error: command handler for "' + command + '" failed, details:\n')
+                print(f'error: command handler for "{command}" raised {en}, details:\n')
                 traceback.print_exc()
                 print("**************************\n" * 3)
                 return
@@ -105,7 +114,8 @@ class HanabiClient:
             print(f'debug: ignoring command "{command}"')
 
     def websocket_error(self, ws, error):
-        print(f"Encountered a WebSocket error: {error}")
+        print(f"Encountered a WebSocket error ({error.__class__.__name__}), details:")
+        print(error)
 
     def websocket_close(self, ws):
         print("WebSocket connection closed.")
@@ -222,7 +232,7 @@ class HanabiClient:
     def chat_create_table(self):
         self.send(
             "tableCreate",
-            {"name": f"omni ones suck", "maxPlayers": 5},
+            {"name": f"garbled characters is called mojibake", "maxPlayers": 5},
         )
 
     def chat_set_variant(self, variant_name: str):
@@ -397,6 +407,10 @@ class HanabiClient:
 
         elif data["type"] == "status":
             state.clue_tokens = data["clues"]
+
+        elif data["type"] == "gameOver":
+            if self.disconnect_on_game_end:
+                raise SystemExit
 
     def database_id(self, data):
         # Games are transformed into shared replays after they are completed
@@ -747,7 +761,7 @@ class HanabiClient:
                 continue
             num_useful_cards += 1
 
-        # clues that get a lot of useful cards are good
+        # clues that narrow down useful cards the most are good, lowest scores first
         legal_clues = state.get_legal_clues()
         legal_clue_to_score = {
             (clue_value, clue_type, target_index): state.evaluate_clue_score(

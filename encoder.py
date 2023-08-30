@@ -9,7 +9,7 @@ from game_state import (
     is_whiteish_rainbowy,
     get_all_touched_cards,
     get_available_color_clues,
-    get_available_rank_clues
+    get_available_rank_clues,
 )
 
 from typing import Dict, List, Set, Optional, Tuple
@@ -591,7 +591,7 @@ class EncoderGameState(GameState):
                     # iterate over rank clues
                     # TODO: special 1s/5s
                     rank_to_cards_touched = {}
-                    for clue_value in range(1, 6):
+                    for clue_value in get_available_rank_clues(self.variant_name):
                         cards_touched = get_all_touched_cards(
                             RANK_CLUE, clue_value, self.variant_name
                         )
@@ -735,7 +735,7 @@ class EncoderGameState(GameState):
                 )
             score *= len(new_candidates)
 
-        return -score
+        return score
 
     def get_hat_residue(
         self,
