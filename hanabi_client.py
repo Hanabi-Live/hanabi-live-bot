@@ -232,7 +232,7 @@ class HanabiClient:
     def chat_create_table(self):
         self.send(
             "tableCreate",
-            {"name": f"garbled characters is called mojibake", "maxPlayers": 5},
+            {"name": f"encoder", "maxPlayers": 5},
         )
 
     def chat_set_variant(self, variant_name: str):
@@ -649,7 +649,9 @@ class HanabiClient:
             )
             max_crits = max(max_crits, num_crits)
 
-        cannot_play = (max_crits > state.num_cards_in_deck) and (max_crits >= 2)
+        cannot_play = (
+            max_crits > state.num_cards_in_deck and state.num_cards_in_deck > 0
+        )
         if cannot_play:
             print(f"CANNOT PLAY! {max_crits} crits > {state.num_cards_in_deck} cards")
 
@@ -659,6 +661,7 @@ class HanabiClient:
                 my_good_actions["playable"],
                 key=lambda order: min([x[1] for x in state.get_candidates(order)]),
             )
+            num_crits_i_have = sum([state.is_critical(x) for x in state.our_candidates])
 
             # priority 0
             fk_orders = state.get_fully_known_card_orders(
@@ -669,7 +672,14 @@ class HanabiClient:
                     identity = fk_orders[order]
                     next_playable = (identity[0], identity[1] + 1)
                     all_others_hc_cards = state.get_all_other_players_hat_clued_cards()
-                    if next_playable in all_others_hc_cards:
+                    dire_circumstances = (
+                        identity not in state.criticals
+                        and num_crits_i_have > state.num_cards_in_deck
+                    )
+                    if dire_circumstances:
+                        print(f"Would love to play {identity} but cannot")
+
+                    if next_playable in all_others_hc_cards and not dire_circumstances:
                         print("PRIO 0")
                         self.play(order, table_id)
                         return

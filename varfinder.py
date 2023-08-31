@@ -95,7 +95,7 @@ if __name__ == "__main__":
         "yagami_black",
         5,
         include_dark_suits=False,
-        num_suits=4,
+        num_suits=6,
         include_substrings=include_substrings,
         exclude_substrings=exclude_substrings,
         shorthand=True,
