@@ -440,8 +440,8 @@ class GameState:
     def num_cards_in_deck(self) -> int:
         total_cards = len(get_all_cards_with_multiplicity(self.variant_name))
         cards_dealt = {2: 10, 3: 15, 4: 16, 5: 20, 6: 18}[self.num_players]
-        return (
-            total_cards - cards_dealt - sum(self.discards.values()) - sum(self.stacks)
+        return max(
+            0, total_cards - cards_dealt - sum(self.discards.values()) - sum(self.stacks)
         )
 
     @property
@@ -494,6 +494,9 @@ class GameState:
 
     def is_critical(self, candidates: Set[Tuple[int, int]]) -> bool:
         return not len(candidates.difference(self.criticals)) and len(candidates)
+
+    def is_critical_card(self, card: Card) -> bool:
+        return (card.suit_index, card.rank) in self.criticals
 
     def is_clued(self, order) -> bool:
         return (

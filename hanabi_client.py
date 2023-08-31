@@ -640,7 +640,20 @@ class HanabiClient:
         for action_type, orders in good_actions.items():
             print(action_type, orders)
 
-        if len(my_good_actions["playable"]):
+        max_crits = 0
+        for player_index in range(state.num_players):
+            if player_index == state.our_player_index:
+                continue
+            num_crits = sum(
+                [state.is_critical_card(card) for card in state.hands[player_index]]
+            )
+            max_crits = max(max_crits, num_crits)
+
+        cannot_play = (max_crits > state.num_cards_in_deck) and (max_crits >= 2)
+        if cannot_play:
+            print(f"CANNOT PLAY! {max_crits} crits > {state.num_cards_in_deck} cards")
+
+        if len(my_good_actions["playable"]) and not cannot_play:
             # sort playables by lowest possible rank of candidates
             sorted_playables = sorted(
                 my_good_actions["playable"],
@@ -746,9 +759,8 @@ class HanabiClient:
                 self.discard(sorted_playables[0], table_id)
             return
 
-        if len(my_good_actions["yoloable"]) and (
-            state.bombs <= 1 or state.pace <= state.num_players - 3
-        ):
+        cannot_yolo = (state.bombs > 1) and (state.pace > state.num_players - 3)
+        if len(my_good_actions["yoloable"]) and not cannot_yolo and not cannot_play:
             self.play(my_good_actions["yoloable"][0], table_id)
             return
 
