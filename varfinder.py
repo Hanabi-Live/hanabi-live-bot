@@ -83,7 +83,6 @@ if __name__ == "__main__":
         "Alternating",
         "Duck",
         "Cow",
-        "Odds and Evens",
         "Synesthesia",
         "Clue Starved",
         "Funnels",
@@ -92,7 +91,7 @@ if __name__ == "__main__":
     include_substrings = None
 
     exclude_substrings = None
-    include_substrings = ["Muddy-Rainbow-Ones"]
+    include_substrings = ["Odds and Evens"]
 
     vars = get_missing_vars(
         "yagami_black",

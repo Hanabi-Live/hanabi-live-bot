@@ -501,6 +501,7 @@ class EncoderGameState(GameState):
         ]
         all_lp_1_vars = [var for var in SUITS if "Light-Pink-Ones" in var]
         all_mr_1_vars = [var for var in SUITS if "Muddy-Rainbow-Ones" in var]
+        all_oe_vars = [var for var in SUITS if "Odds and Evens" in var]
         base_dct = {
             var: {
                 0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
@@ -557,6 +558,30 @@ class EncoderGameState(GameState):
                     1: [(COLOR_CLUE, 1), (RANK_CLUE, 2)],
                     2: [(COLOR_CLUE, 2), (RANK_CLUE, 3)],
                     3: [(COLOR_CLUE, 3), (RANK_CLUE, 4)],
+                }
+
+        for var in all_oe_vars:
+            avail_color_clues = get_available_color_clues(var)
+            if len(avail_color_clues) == 6:
+                base_dct[var] = {
+                    0: [(RANK_CLUE, 0), (COLOR_CLUE, 0)],
+                    1: [(RANK_CLUE, 1)],
+                    2: [(COLOR_CLUE, 1), (COLOR_CLUE, 2)],
+                    3: [(COLOR_CLUE, 3), (COLOR_CLUE, 4), (COLOR_CLUE, 5)],
+                }
+            elif len(avail_color_clues) == 5:
+                base_dct[var] = {
+                    0: [(RANK_CLUE, 0), (COLOR_CLUE, 0)],
+                    1: [(RANK_CLUE, 1)],
+                    2: [(COLOR_CLUE, 1), (COLOR_CLUE, 2)],
+                    3: [(COLOR_CLUE, 3), (COLOR_CLUE, 4)],
+                }
+            elif len(avail_color_clues) == 4:
+                base_dct[var] = {
+                    0: [(RANK_CLUE, 0)],
+                    1: [(RANK_CLUE, 1)],
+                    2: [(COLOR_CLUE, 0), (COLOR_CLUE, 1)],
+                    3: [(COLOR_CLUE, 2), (COLOR_CLUE, 3)],
                 }
 
         base_dct["Valentine Mix (6 Suits)"] = {

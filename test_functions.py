@@ -148,7 +148,7 @@ def test_get_all_touched_cards():
         (C, 1, "Null-Ones & Muddy Rainbow (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
         (C, 1, "Null-Ones & Omni (5 Suits)"): all_suit(1).union(all_suit(4)).difference({(1, 1)}),
 
-        # TODO: add deceptive and odds/evens
+        # TODO: add deceptive
         (R, 2, "No Variant"): all_rank(2, range(5)),
         (R, 2, "Rainbow (4 Suits)"): all_rank(2, range(4)),
         (R, 2, "Pink (4 Suits)"): all_rank(2, range(4)).union(all_suit(3)),
@@ -186,6 +186,10 @@ def test_get_all_touched_cards():
         (R, 2, "Null-Ones & Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
         (R, 2, "Null-Ones & Light Pink (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
         (R, 2, "Null-Ones & Omni (5 Suits)"): all_rank(2, range(4)).union(all_suit(4)),
+        (R, 0, "Odds and Evens (5 Suits)"): all_rank(2, range(5)).union(all_rank(4, range(5))),
+        (R, 1, "Odds and Evens (5 Suits)"): all_rank(1, range(5)).union(all_rank(3, range(5))).union(all_rank(5, range(5))),
+        (R, 0, "Odds and Evens & Pink (5 Suits)"): all_rank(2, range(5)).union(all_rank(4, range(5))).union(all_suit(4)),
+        (R, 1, "Odds and Evens & Pink (5 Suits)"): all_rank(1, range(5)).union(all_rank(3, range(5))).union(all_rank(5, range(5))).union(all_suit(4)),
     }
     run_simple_test(game_state.get_all_touched_cards, tests)
     # fmt: on

@@ -216,19 +216,20 @@ def get_all_touched_cards(
                     "Dark Omni",
                 }:
                     cards.add((i, rank))
-                if (
-                    suit
-                    not in {
-                        "Brown",
-                        "Dark Brown",
-                        "Muddy Rainbow",
-                        "Cocoa Rainbow",
-                        "Null",
-                        "Dark Null",
-                    }
-                    and clue_value == rank
-                ):
-                    cards.add((i, rank))
+                if suit not in {
+                    "Brown",
+                    "Dark Brown",
+                    "Muddy Rainbow",
+                    "Cocoa Rainbow",
+                    "Null",
+                    "Dark Null",
+                }:
+                    if (clue_value == rank) and ("Odds and Evens" not in variant_name):
+                        cards.add((i, rank))
+                    elif (clue_value == rank % 2) and (
+                        "Odds and Evens" in variant_name
+                    ):
+                        cards.add((i, rank))
                 if (
                     (
                         "Pink-Ones" in variant_name
@@ -441,7 +442,8 @@ class GameState:
         total_cards = len(get_all_cards_with_multiplicity(self.variant_name))
         cards_dealt = {2: 10, 3: 15, 4: 16, 5: 20, 6: 18}[self.num_players]
         return max(
-            0, total_cards - cards_dealt - sum(self.discards.values()) - sum(self.stacks)
+            0,
+            total_cards - cards_dealt - sum(self.discards.values()) - sum(self.stacks),
         )
 
     @property
