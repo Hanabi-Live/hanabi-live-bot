@@ -499,6 +499,8 @@ class EncoderGameState(GameState):
             for var in SUITS
             if len(get_available_color_clues(var)) == 3 and is_whiteish_rainbowy(var)
         ]
+        all_lp_1_vars = [var for var in SUITS if "Light-Pink-Ones" in var]
+        all_mr_1_vars = [var for var in SUITS if "Muddy-Rainbow-Ones" in var]
         base_dct = {
             var: {
                 0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
@@ -509,15 +511,63 @@ class EncoderGameState(GameState):
             for var in all_3color_wr_vars
         }
 
+        for var in all_lp_1_vars:
+            avail_color_clues = get_available_color_clues(var)
+            if len(avail_color_clues) == 6:
+                base_dct[var] = {
+                    0: [(RANK_CLUE, 5), (COLOR_CLUE, 0)],
+                    1: [(RANK_CLUE, 2), (COLOR_CLUE, 1), (COLOR_CLUE, 2)],
+                    2: [(RANK_CLUE, 3), (COLOR_CLUE, 3), (COLOR_CLUE, 4)],
+                    3: [(RANK_CLUE, 4), (COLOR_CLUE, 5)],
+                }
+            elif len(avail_color_clues) == 5:
+                base_dct[var] = {
+                    0: [(RANK_CLUE, 5), (COLOR_CLUE, 0)],
+                    1: [(RANK_CLUE, 2), (COLOR_CLUE, 1), (COLOR_CLUE, 2)],
+                    2: [(RANK_CLUE, 3), (COLOR_CLUE, 3)],
+                    3: [(RANK_CLUE, 4), (COLOR_CLUE, 4)],
+                }
+            elif len(avail_color_clues) == 4:
+                base_dct[var] = {
+                    0: [(RANK_CLUE, 5), (COLOR_CLUE, 0)],
+                    1: [(RANK_CLUE, 2), (COLOR_CLUE, 1)],
+                    2: [(RANK_CLUE, 3), (COLOR_CLUE, 2)],
+                    3: [(RANK_CLUE, 4), (COLOR_CLUE, 3)],
+                }
+
+        for var in all_mr_1_vars:
+            avail_color_clues = get_available_color_clues(var)
+            if len(avail_color_clues) == 6:
+                base_dct[var] = {
+                    0: [(COLOR_CLUE, 0), (RANK_CLUE, 5)],
+                    1: [(COLOR_CLUE, 1), (COLOR_CLUE, 2), (RANK_CLUE, 2)],
+                    2: [(COLOR_CLUE, 3), (COLOR_CLUE, 4), (RANK_CLUE, 3)],
+                    3: [(COLOR_CLUE, 5), (RANK_CLUE, 4)],
+                }
+            elif len(avail_color_clues) == 5:
+                base_dct[var] = {
+                    0: [(COLOR_CLUE, 0), (RANK_CLUE, 5)],
+                    1: [(COLOR_CLUE, 1), (COLOR_CLUE, 2), (RANK_CLUE, 2)],
+                    2: [(COLOR_CLUE, 3), (RANK_CLUE, 3)],
+                    3: [(COLOR_CLUE, 4), (RANK_CLUE, 4)],
+                }
+            elif len(avail_color_clues) == 4:
+                base_dct[var] = {
+                    0: [(COLOR_CLUE, 0), (RANK_CLUE, 5)],
+                    1: [(COLOR_CLUE, 1), (RANK_CLUE, 2)],
+                    2: [(COLOR_CLUE, 2), (RANK_CLUE, 3)],
+                    3: [(COLOR_CLUE, 3), (RANK_CLUE, 4)],
+                }
+
         base_dct["Valentine Mix (6 Suits)"] = {
             0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
-            1: [(RANK_CLUE, 2), (COLOR_CLUE, 0)],
+            1: [(COLOR_CLUE, 0), (RANK_CLUE, 2)],
             2: [(COLOR_CLUE, 1), (RANK_CLUE, 3)],
             3: [(RANK_CLUE, 4)],
         }
         base_dct["Valentine Mix (5 Suits)"] = {
             0: [(RANK_CLUE, 5), (RANK_CLUE, 1)],
-            1: [(RANK_CLUE, 2), (COLOR_CLUE, 0)],
+            1: [(COLOR_CLUE, 0), (RANK_CLUE, 2)],
             2: [(COLOR_CLUE, 1), (RANK_CLUE, 3)],
             3: [(RANK_CLUE, 4)],
         }

@@ -91,6 +91,9 @@ if __name__ == "__main__":
     ]
     include_substrings = None
 
+    exclude_substrings = None
+    include_substrings = ["Muddy-Rainbow-Ones"]
+
     vars = get_missing_vars(
         "yagami_black",
         5,
