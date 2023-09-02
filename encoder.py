@@ -297,10 +297,23 @@ def get_playful_mod_table(variant_name: str, preferred_modulus=None):
     return mod_table
 
 
+class SuperPosition:
+    def __init__(
+        self,
+        expected_candidates: Set[Tuple[int, int]],
+        unexpected_candidates: Set[Tuple[int, int]],
+        presumed_playable_orders: Set[int],
+    ):
+        self.expected = expected_candidates
+        self.unexpected = unexpected_candidates
+        self.presumed = presumed_playable_orders
+
+
 class EncoderGameState(GameState):
     def __init__(self, variant_name, player_names, our_player_index):
         super().__init__(variant_name, player_names, our_player_index)
         self.other_info_clued_card_orders["hat_clued_card_orders"] = set()
+        self.superpositions: Dict[int, SuperPosition] = {}
 
     @property
     def hat_clued_card_orders(self) -> Set[int]:
@@ -416,6 +429,12 @@ class EncoderGameState(GameState):
             result[residue].add(identity)
         return result
 
+    def handle_play(self, player_index: int, order: int, suit_index: int, rank: int):
+        return super().handle_play(player_index, order, suit_index, rank)
+
+    def handle_discard(self, player_index: int, order: int, suit_index: int, rank: int):
+        return super().handle_discard(player_index, order, suit_index, rank)
+
     def handle_clue(
         self,
         clue_giver: int,
@@ -499,6 +518,9 @@ class EncoderGameState(GameState):
             for var in SUITS
             if len(get_available_color_clues(var)) == 3 and is_whiteish_rainbowy(var)
         ]
+        all_1color_vars = [
+            var for var in SUITS if len(get_available_color_clues(var)) == 1
+        ]
         all_lp_1_vars = [var for var in SUITS if "Light-Pink-Ones" in var]
         all_mr_1_vars = [var for var in SUITS if "Muddy-Rainbow-Ones" in var]
         all_oe_vars = [var for var in SUITS if "Odds and Evens" in var]
@@ -511,6 +533,14 @@ class EncoderGameState(GameState):
             }
             for var in all_3color_wr_vars
         }
+
+        for var in all_1color_vars:
+            base_dct[var] = {
+                0: [(COLOR_CLUE, 0)],
+                1: [(RANK_CLUE, 1), (RANK_CLUE, 5)],
+                2: [(RANK_CLUE, 2), (RANK_CLUE, 3)],
+                3: [(RANK_CLUE, 4)],
+            }
 
         for var in all_lp_1_vars:
             avail_color_clues = get_available_color_clues(var)

@@ -75,9 +75,7 @@ def get_missing_vars(
 if __name__ == "__main__":
     exclude_substrings = [
         "Throw",
-        "Matryoshka",
         "Dual-Color",
-        "Ambig",
         "Reversed",
         "Up or Down",
         "Alternating",
@@ -89,9 +87,6 @@ if __name__ == "__main__":
         "Chimneys",
     ]
     include_substrings = None
-
-    exclude_substrings = None
-    include_substrings = ["Odds and Evens"]
 
     vars = get_missing_vars(
         "yagami_black",
