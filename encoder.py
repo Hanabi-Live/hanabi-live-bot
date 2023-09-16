@@ -20,279 +20,133 @@ def get_playful_mod_table(variant_name: str, preferred_modulus=None):
     # playable is marked as (-1, 0)
     # stack x + n is marked as (x, -n)
     num_suits = len(SUITS[variant_name])
-    all_cards = get_all_cards(variant_name)
     if num_suits == 6:
         if preferred_modulus == 12:
             mod_table = {
-                False: {
-                    0: [(0, 0)],
-                    1: [(-1, 0)],
-                    2: [(0, -2), (3, -2)],
-                    3: [(1, -2)],
-                    4: [(2, -2)],
-                    5: [(4, -2)],
-                    6: [(5, -2)],
-                    7: [(0, -3), (3, -3)],
-                    8: [(1, -3), (4, -3)],
-                    9: [(2, -3), (5, -3)],
-                    10: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4), (5, -5)],
-                    11: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5), (5, -4)],
-                },
-                True: {
-                    0: [(0, 0)],
-                    1: [(-1, 0)],
-                    2: [(0, -2)],
-                    3: [(1, -2)],
-                    4: [(2, -2)],
-                    5: [(3, -2)],
-                    6: [(4, -2)],
-                    7: [(5, -2)],
-                    8: [(0, -3), (3, -3)],
-                    9: [(1, -3), (4, -3)],
-                    10: [(2, -3), (5, -3)],
-                    11: [
-                        (0, -4),
-                        (1, -4),
-                        (2, -4),
-                        (3, -4),
-                        (4, -4),
-                        (5, -4),
-                        (0, -5),
-                        (1, -5),
-                        (2, -5),
-                        (3, -5),
-                        (4, -5),
-                        (5, -5),
-                    ],
-                },
+                0: [(0, 0)],
+                1: [(-1, 0)],
+                2: [(0, -2), (3, -2)],
+                3: [(1, -2)],
+                4: [(2, -2)],
+                5: [(4, -2)],
+                6: [(5, -2)],
+                7: [(0, -3), (3, -3)],
+                8: [(1, -3), (4, -3)],
+                9: [(2, -3), (5, -3)],
+                10: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4), (5, -5)],
+                11: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5), (5, -4)],
             }
         elif preferred_modulus == 16:
             mod_table = {
-                False: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (2, -1), (4, -1)],
-                    2: [(1, -1), (3, -1), (5, -1)],
-                    3: [(0, -2)],
-                    4: [(1, -2)],
-                    5: [(2, -2)],
-                    6: [(3, -2)],
-                    7: [(4, -2)],
-                    8: [(5, -2)],
-                    9: [(0, -3), (3, -3)],
-                    10: [(1, -3), (4, -3)],
-                    11: [(2, -3), (5, -3)],
-                    12: [(0, -4), (1, -5), (2, -4)],
-                    13: [(3, -4), (4, -5), (5, -4)],
-                    14: [(1, -4), (3, -5), (5, -5)],
-                    15: [(0, -5), (2, -5), (4, -4)],
-                },
-                True: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (2, -1), (4, -1)],
-                    2: [(1, -1), (3, -1), (5, -1)],
-                    3: [(0, -2)],
-                    4: [(1, -2)],
-                    5: [(2, -2)],
-                    6: [(3, -2)],
-                    7: [(4, -2)],
-                    8: [(5, -2)],
-                    9: [(0, -3), (3, -3)],
-                    10: [(1, -3)],
-                    11: [(2, -3)],
-                    12: [(4, -3)],
-                    13: [(5, -3)],
-                    14: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4), (5, -5)],
-                    15: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5), (5, -4)],
-                },
+                0: [(0, 0)],
+                1: [(-1, 0)],
+                2: [(0, -2)],
+                3: [(1, -2)],
+                4: [(2, -2)],
+                5: [(3, -2)],
+                6: [(4, -2)],
+                7: [(5, -2)],
+                8: [(0, -3), (3, -3)],
+                9: [(1, -3), (4, -3)],
+                10: [(2, -3), (5, -3)],
+                11: [(0, -4), (3, -5), (5, -4)],
+                12: [(1, -4), (4, -5)],
+                13: [(2, -4), (5, -5)],
+                14: [(3, -4), (0, -5)],
+                15: [(4, -4), (1, -5), (2, -5)],
             }
     elif num_suits == 5:
         if preferred_modulus == 12:
             mod_table = {
-                False: {
-                    0: [(0, 0)],
-                    1: [(-1, 0)],
-                    2: [(0, -2)],
-                    3: [(1, -2)],
-                    4: [(2, -2)],
-                    5: [(3, -2)],
-                    6: [(4, -2)],
-                    7: [(0, -3), (2, -3)],
-                    8: [(1, -3), (3, -3)],
-                    9: [(4, -3)],
-                    10: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4)],
-                    11: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5)],
-                },
-                True: {
-                    0: [(0, 0)],
-                    1: [(-1, 0)],
-                    2: [(0, -2)],
-                    3: [(1, -2)],
-                    4: [(2, -2)],
-                    5: [(3, -2)],
-                    6: [(4, -2)],
-                    7: [(0, -3), (2, -3)],
-                    8: [(1, -3), (3, -3)],
-                    9: [(4, -3)],
-                    10: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4)],
-                    11: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5)],
-                },
+                0: [(0, 0)],
+                1: [(-1, 0)],
+                2: [(0, -2)],
+                3: [(1, -2)],
+                4: [(2, -2)],
+                5: [(3, -2)],
+                6: [(4, -2)],
+                7: [(0, -3), (2, -3)],
+                8: [(1, -3), (3, -3)],
+                9: [(4, -3)],
+                10: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4)],
+                11: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5)],
             }
         elif preferred_modulus == 16:
             mod_table = {
-                False: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (1, -1)],
-                    2: [(2, -1), (3, -1)],
-                    3: [(4, -1)],
-                    4: [(0, -2)],
-                    5: [(1, -2)],
-                    6: [(2, -2)],
-                    7: [(3, -2)],
-                    8: [(4, -2)],
-                    9: [(0, -3)],
-                    10: [(1, -3)],
-                    11: [(2, -3)],
-                    12: [(3, -3)],
-                    13: [(4, -3)],
-                    14: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4)],
-                    15: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5)],
-                },
-                True: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (1, -1)],
-                    2: [(2, -1), (3, -1)],
-                    3: [(4, -1)],
-                    4: [(0, -2)],
-                    5: [(1, -2)],
-                    6: [(2, -2)],
-                    7: [(3, -2)],
-                    8: [(4, -2)],
-                    9: [(0, -3)],
-                    10: [(1, -3)],
-                    11: [(2, -3)],
-                    12: [(3, -3)],
-                    13: [(4, -3)],
-                    14: [(0, -4), (1, -5), (2, -4), (3, -5), (4, -4)],
-                    15: [(0, -5), (1, -4), (2, -5), (3, -4), (4, -5)],
-                },
+                0: [(0, 0)],
+                1: [(-1, 0)],
+                2: [(0, -2)],
+                3: [(1, -2)],
+                4: [(2, -2)],
+                5: [(3, -2)],
+                6: [(4, -2)],
+                7: [(0, -3)],
+                8: [(1, -3)],
+                9: [(2, -3)],
+                10: [(3, -3)],
+                11: [(4, -3)],
+                12: [(0, -4), (2, -5), (4, -4)],
+                13: [(1, -4), (3, -5)],
+                14: [(2, -4), (4, -5)],
+                15: [(3, -4), (0, -5), (1, -5)],
             }
         elif preferred_modulus == 20:
             mod_table = {
-                False: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (2, -1)],
-                    2: [(1, -1)],
-                    3: [(3, -1)],
-                    4: [(4, -1)],
-                    5: [(0, -2)],
-                    6: [(1, -2)],
-                    7: [(2, -2)],
-                    8: [(3, -2)],
-                    9: [(4, -2)],
-                    10: [(0, -3)],
-                    11: [(1, -3)],
-                    12: [(2, -3)],
-                    13: [(3, -3)],
-                    14: [(4, -3)],
-                    15: [(0, -4), (3, -5)],
-                    16: [(1, -4), (4, -5)],
-                    17: [(2, -4), (0, -5)],
-                    18: [(3, -4), (1, -5)],
-                    19: [(4, -4), (2, -5)],
-                },
-                True: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (2, -1)],
-                    2: [(1, -1)],
-                    3: [(3, -1)],
-                    4: [(4, -1)],
-                    5: [(0, -2)],
-                    6: [(1, -2)],
-                    7: [(2, -2)],
-                    8: [(3, -2)],
-                    9: [(4, -2)],
-                    10: [(0, -3)],
-                    11: [(1, -3)],
-                    12: [(2, -3)],
-                    13: [(3, -3)],
-                    14: [(4, -3)],
-                    15: [(0, -4), (3, -5)],
-                    16: [(1, -4), (4, -5)],
-                    17: [(2, -4), (0, -5)],
-                    18: [(3, -4), (1, -5)],
-                    19: [(4, -4), (2, -5)],
-                },
+                0: [(0, 0)],
+                1: [(-1, 0)],
+                2: [(0, -2)],
+                3: [(1, -2)],
+                4: [(2, -2)],
+                5: [(3, -2)],
+                6: [(4, -2)],
+                7: [(0, -3)],
+                8: [(1, -3)],
+                9: [(2, -3)],
+                10: [(3, -3)],
+                11: [(4, -3)],
+                12: [(0, -4)],
+                13: [(1, -4)],
+                14: [(2, -4)],
+                15: [(3, -4)],
+                16: [(4, -4)],
+                17: [(0, -5), (2, -5)],
+                18: [(1, -5), (3, -5)],
+                19: [(4, -5)],
             }
     elif num_suits == 4:
         if preferred_modulus == 12:
             mod_table = {
-                False: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (2, -1)],
-                    2: [(1, -1), (3, -1)],
-                    3: [(0, -2)],
-                    4: [(1, -2)],
-                    5: [(2, -2)],
-                    6: [(3, -2)],
-                    7: [(0, -3), (2, -3)],
-                    8: [(1, -3), (3, -3)],
-                    9: [(0, -4), (2, -5)],
-                    10: [(1, -4), (3, -5)],
-                    11: [(0, -5), (1, -5), (2, -4), (3, -4)],
-                },
-                True: {
-                    0: [(0, 0)],
-                    1: [(0, -1), (2, -1)],
-                    2: [(1, -1), (3, -1)],
-                    3: [(0, -2)],
-                    4: [(1, -2)],
-                    5: [(2, -2)],
-                    6: [(3, -2)],
-                    7: [(0, -3), (2, -3)],
-                    8: [(1, -3), (3, -3)],
-                    9: [(0, -4), (2, -5)],
-                    10: [(1, -4), (3, -5)],
-                    11: [(0, -5), (1, -5), (2, -4), (3, -4)],
-                },
+                0: [(0, 0)],
+                1: [(-1, 0)],
+                2: [(0, -2)],
+                3: [(1, -2)],
+                4: [(2, -2)],
+                5: [(3, -2)],
+                6: [(0, -3), (2, -3)],
+                7: [(1, -3), (3, -3)],
+                8: [(0, -4), (2, -5)],
+                9: [(1, -4), (3, -5)],
+                10: [(2, -4), (0, -5)],
+                11: [(3, -4), (1, -5)],
             }
         elif preferred_modulus == 16:
             mod_table = {
-                False: {
-                    0: [(0, 0)],
-                    1: [(0, -1)],
-                    2: [(1, -1)],
-                    3: [(2, -1)],
-                    4: [(3, -1)],
-                    5: [(0, -2)],
-                    6: [(1, -2)],
-                    7: [(2, -2)],
-                    8: [(3, -2)],
-                    9: [(0, -3)],
-                    10: [(1, -3)],
-                    11: [(2, -3)],
-                    12: [(3, -3)],
-                    13: [(0, -4), (1, -5)],
-                    14: [(1, -4), (2, -5), (3, -4)],
-                    15: [(0, -5), (2, -4), (3, -5)],
-                },
-                True: {
-                    0: [(0, 0)],
-                    1: [(0, -1)],
-                    2: [(1, -1)],
-                    3: [(2, -1)],
-                    4: [(3, -1)],
-                    5: [(0, -2)],
-                    6: [(1, -2)],
-                    7: [(2, -2)],
-                    8: [(3, -2)],
-                    9: [(0, -3)],
-                    10: [(1, -3)],
-                    11: [(2, -3)],
-                    12: [(3, -3)],
-                    13: [(0, -4), (1, -5)],
-                    14: [(1, -4), (2, -5), (3, -4)],
-                    15: [(0, -5), (2, -4), (3, -5)],
-                },
+                0: [(0, 0)],
+                1: [(-1, 0)],
+                2: [(0, -2)],
+                3: [(1, -2)],
+                4: [(2, -2)],
+                5: [(3, -2)],
+                6: [(0, -3)],
+                7: [(1, -3)],
+                8: [(2, -3)],
+                9: [(3, -3)],
+                10: [(0, -4)],
+                11: [(1, -4)],
+                12: [(2, -4)],
+                13: [(3, -4)],
+                14: [(0, -5), (2, -5)],
+                15: [(1, -5), (3, -5)],
             }
     return mod_table
 
@@ -300,24 +154,66 @@ def get_playful_mod_table(variant_name: str, preferred_modulus=None):
 class SuperPosition:
     def __init__(
         self,
-        expected_candidates: Set[Tuple[int, int]],
-        unexpected_candidates: Set[Tuple[int, int]],
-        presumed_playable_orders: Set[int],
+        default_residue: int,
+        increment_candidates: Dict[int, Set[Tuple[int, int]]],
+        triggering_orders: Set[int],
     ):
-        self.expected = expected_candidates
-        self.unexpected = unexpected_candidates
-        self.presumed = presumed_playable_orders
+        self.default_residue = default_residue
+        self.increment = increment_candidates
+        self.triggering_orders = triggering_orders
+        self.actual_num_trash = 0
+
+    @property
+    def residue_increment(self) -> int:
+        return self.actual_num_trash
+
+    def get_updated_residue(self, mod_base: int) -> int:
+        return (self.default_residue + self.residue_increment) % mod_base
+
+    def get_sp_identities(self) -> Set[Tuple[int, int]]:
+        return self.increment[self.residue_increment]
+
+    def __str__(self):
+        return (
+            f"Residue: {self.default_residue}, Triggering: {self.triggering_orders}, "
+            f"Unexpected # trash: {self.actual_num_trash}\n"
+            f"Superposition identities: {self.get_sp_identities()}"
+        )
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class EncoderGameState(GameState):
     def __init__(self, variant_name, player_names, our_player_index):
         super().__init__(variant_name, player_names, our_player_index)
         self.other_info_clued_card_orders["hat_clued_card_orders"] = set()
-        self.superpositions: Dict[int, SuperPosition] = {}
+        self.other_info_clued_card_orders["trashy_orders"] = set()
+        self.superpositions: Dict[int, SuperPosition] = {}  # order -> SuperPosition
+        self.identities_called_to_play: Set[Tuple[int, int]] = set()
+        self.dupe_play_score_pct_threshold: float = 0.6
 
     @property
     def hat_clued_card_orders(self) -> Set[int]:
         return self.other_info_clued_card_orders["hat_clued_card_orders"]
+
+    @property
+    def trashy_orders(self) -> Set[int]:
+        return self.other_info_clued_card_orders["trashy_orders"]
+
+    # various game conditions
+    @property
+    def cannot_play(self) -> bool:
+        max_crits = 0
+        for player_index in range(self.num_players):
+            if player_index == self.our_player_index:
+                continue
+            num_crits = sum(
+                [self.is_critical_card(card) for card in self.hands[player_index]]
+            )
+            max_crits = max(max_crits, num_crits)
+
+        return max_crits > self.num_cards_in_deck and self.num_cards_in_deck > 0
 
     def set_variant_name(self, variant_name: str, num_players: int):
         super().set_variant_name(variant_name, num_players)
@@ -370,7 +266,7 @@ class EncoderGameState(GameState):
                 and c.order in self.hat_clued_card_orders
             }
 
-    def get_leftmost_non_hat_clued_cards(self):
+    def get_leftmost_non_hat_clued_cards(self) -> List[Optional[Card]]:
         result = []
         for player_index, hand in self.hands.items():
             if player_index == self.our_player_index:
@@ -381,7 +277,7 @@ class EncoderGameState(GameState):
 
     @property
     def mod_base(self) -> int:
-        return max(self.mod_table[False]) + 1
+        return max(self.mod_table) + 1
 
     @property
     def num_residues_per_player(self) -> int:
@@ -391,9 +287,7 @@ class EncoderGameState(GameState):
     def identity_to_residue(self) -> Dict[Tuple[int, int], int]:
         result = {}
         trash_residue = 0
-        most_1s_played = self.num_1s_played > len(SUITS[self.variant_name]) / 2.0
-
-        for residue, identities in self.mod_table[most_1s_played].items():
+        for residue, identities in self.mod_table.items():
             # trash is marked as (0, 0)
             # playable is marked as (-1, 0)
             # stack x + n is marked as (x, -n)
@@ -406,10 +300,10 @@ class EncoderGameState(GameState):
                     rank = self.stacks[identity[0]] - identity[1]
                     result[(identity[0], rank)] = residue
                 elif identity == (0, 0):
-                    trash_residue = residue
+                    assert residue == trash_residue
 
         # override explicit identities
-        for residue, identities in self.mod_table[most_1s_played].items():
+        for residue, identities in self.mod_table.items():
             for identity in identities:
                 if identity[1] > 0:
                     result[identity] = residue
@@ -430,9 +324,70 @@ class EncoderGameState(GameState):
         return result
 
     def handle_play(self, player_index: int, order: int, suit_index: int, rank: int):
+        if (suit_index, rank) in self.identities_called_to_play:
+            self.identities_called_to_play.remove((suit_index, rank))
+
+        order_to_index = self.order_to_index
+        for sp_order, superposition in self.superpositions.items():
+            _, i = order_to_index[sp_order]
+            if order in superposition.triggering_orders:
+                superposition.triggering_orders.remove(order)
+
+            removed_trash_orders = set()
+            for maybe_trash_order in superposition.triggering_orders:
+                maybe_trash_card = self.get_card(maybe_trash_order)
+                mt_id = (maybe_trash_card.suit_index, maybe_trash_card.rank)
+                if self.is_trash_card(maybe_trash_card) or mt_id == (suit_index, rank):
+                    removed_trash_orders.add(maybe_trash_order)
+
+            for trash_order in removed_trash_orders:
+                player_holding_trash, _ = order_to_index[trash_order]
+                if (player_holding_trash != player_index) and (
+                    order in self.hat_clued_card_orders
+                ):
+                    superposition.actual_num_trash += 1
+                else:
+                    print("A player with known duped card played it")
+                superposition.triggering_orders.remove(trash_order)
+
+            if len(removed_trash_orders):
+                new_candidates = superposition.get_sp_identities()
+                print(
+                    self.our_player_name, i, sp_order, "New candidates", new_candidates
+                )
+                self.our_candidates[i] = self.our_possibilities[i].intersection(
+                    new_candidates
+                )
+                if superposition.get_updated_residue(self.mod_base) == 0:
+                    self.trashy_orders.add(sp_order)
+                else:
+                    if sp_order in self.trashy_orders:
+                        self.trashy_orders.remove(sp_order)
+                self.write_note(sp_order, note="", candidates=new_candidates)
+
+        if order in self.superpositions:
+            del self.superpositions[order]
         return super().handle_play(player_index, order, suit_index, rank)
 
     def handle_discard(self, player_index: int, order: int, suit_index: int, rank: int):
+        order_to_index = self.order_to_index
+        for sp_order, superposition in self.superpositions.items():
+            _, i = order_to_index[sp_order]
+            if order in superposition.triggering_orders:
+                superposition.actual_num_trash += 1
+                superposition.triggering_orders.remove(order)
+                new_candidates = superposition.get_sp_identities()
+                self.our_candidates[i] = self.our_possibilities[i].intersection(
+                    new_candidates
+                )
+                if superposition.get_updated_residue(self.mod_base) == 0:
+                    self.trashy_orders.add(sp_order)
+                else:
+                    if sp_order in self.trashy_orders:
+                        self.trashy_orders.remove(sp_order)
+                self.write_note(sp_order, note="", candidates=new_candidates)
+        if order in self.superpositions:
+            del self.superpositions[order]
         return super().handle_discard(player_index, order, suit_index, rank)
 
     def handle_clue(
@@ -449,6 +404,7 @@ class EncoderGameState(GameState):
         hat_residue = self.get_hat_residue(
             clue_giver, target_index, clue_type, clue_value, card_orders
         )
+        triggering_orders = set()
 
         sum_of_others_residues = 0
         for player_index, hand in self.hands.items():
@@ -459,22 +415,34 @@ class EncoderGameState(GameState):
             if left_non_hat_clued is None:
                 continue
 
-            other_residue = identity_to_residue[
-                (left_non_hat_clued.suit_index, left_non_hat_clued.rank)
-            ]
+            identity = left_non_hat_clued.to_tuple()
+            if self.is_playable_card(left_non_hat_clued):
+                triggering_orders.add(left_non_hat_clued.order)
+                if identity in self.identities_called_to_play and (
+                    self.score_pct < self.dupe_play_score_pct_threshold
+                ):
+                    other_residue = 0
+                else:
+                    other_residue = identity_to_residue[identity]
+                    self.identities_called_to_play.add(identity)
+            else:
+                other_residue = identity_to_residue[identity]
+
             print(
                 self.player_names[player_index]
-                + " "
-                + str(left_non_hat_clued)
-                + " has residue "
-                + str(other_residue)
+                + f" {left_non_hat_clued} has residue {other_residue}"
             )
             sum_of_others_residues += other_residue
 
             _, i = order_to_index[left_non_hat_clued.order]
+            implied_ids = residue_to_identities.get(other_residue, set())
+            if other_residue == 0:
+                implied_ids = implied_ids.union(self.identities_called_to_play)
+
             new_candidates = self.all_candidates_list[player_index][i].intersection(
-                residue_to_identities[other_residue]
+                implied_ids
             )
+
             if len(new_candidates):
                 self.all_candidates_list[player_index][i] = new_candidates
 
@@ -489,17 +457,43 @@ class EncoderGameState(GameState):
                 )
 
         if self.our_player_index != clue_giver:
-            my_residue = (hat_residue - sum_of_others_residues) % self.mod_base
-            print(f"My ({self.our_player_name})) residue = {my_residue}.")
-            print(f"Hat candidates: {residue_to_identities[my_residue]}")
             left_non_hat_clued = self.get_leftmost_non_hat_clued_card(
                 self.our_player_index
             )
+
             if left_non_hat_clued is not None:
+                my_residue = (hat_residue - sum_of_others_residues) % self.mod_base
+                my_implied_ids = residue_to_identities.get(my_residue, set())
+                if my_residue == 0:
+                    my_implied_ids = my_implied_ids.union(
+                        self.identities_called_to_play
+                    )
+                    self.trashy_orders.add(left_non_hat_clued.order)
+                else:
+                    if left_non_hat_clued.order in self.trashy_orders:
+                        self.trashy_orders.remove(left_non_hat_clued.order)
+
+                print(f"My ({self.our_player_name}) residue = {my_residue}.")
+                print(f"Hat candidates: {my_implied_ids}")
+
+                increment_candidates = {
+                    i: residue_to_identities.get(
+                        (my_residue + i) % self.mod_base, set()
+                    ).union(
+                        self.identities_called_to_play
+                        if ((my_residue + i) % self.mod_base == 0)
+                        else set()
+                    )
+                    for i in range(4)
+                }
+
+                self.superpositions[left_non_hat_clued.order] = SuperPosition(
+                    my_residue, increment_candidates, triggering_orders
+                )
                 _, i = order_to_index[left_non_hat_clued.order]
                 new_candidates = self.all_candidates_list[self.our_player_index][
                     i
-                ].intersection(residue_to_identities[my_residue])
+                ].intersection(my_implied_ids)
                 self.all_candidates_list[self.our_player_index][i] = new_candidates
                 self.write_note(
                     left_non_hat_clued.order, note="", candidates=new_candidates
@@ -654,7 +648,17 @@ class EncoderGameState(GameState):
             if lnhc is None:
                 continue
 
-            sum_of_residues += identity_to_residue[(lnhc.suit_index, lnhc.rank)]
+            identity = lnhc.to_tuple()
+            if self.is_playable_card(lnhc):
+                if identity in self.identities_called_to_play and (
+                    self.score_pct < self.dupe_play_score_pct_threshold
+                ):
+                    sum_of_residues += 0
+                else:
+                    sum_of_residues += identity_to_residue[identity]
+                    self.identities_called_to_play.add(identity)
+            else:
+                sum_of_residues += identity_to_residue[identity]
 
         sum_of_residues = sum_of_residues % self.mod_base
         target_index = (
@@ -850,7 +854,6 @@ class EncoderGameState(GameState):
         clue_value: int,
         card_orders,
     ):
-        # TODO: depends on variant
         num_residues = self.num_residues_per_player
         rightmost_unnumbered = self.get_rightmost_unnumbered_card(target_index)
         rightmost_uncolored = self.get_rightmost_uncolored_card(target_index)
@@ -933,27 +936,25 @@ class EncoderGameState(GameState):
         hand = self.hands[player_index]
         candidates_list = self.all_candidates_list[player_index]
 
-        playable = [
-            hand[i].order
-            for i, candidates in enumerate(candidates_list)
-            if self.is_playable(candidates)
-        ]
         trash = [
             hand[i].order
             for i, candidates in enumerate(candidates_list)
-            if self.is_trash(candidates)
+            if self.is_trash(candidates) or hand[i].order in self.trashy_orders
         ]
-        yoloable = []
+        playable = []
         for i, candidates in enumerate(candidates_list):
-            if hand[i].order not in self.hat_clued_card_orders:
-                # don't yolo cards we haven't explicitly touched lol
+            if self.is_trash(candidates) or hand[i].order in self.trashy_orders:
                 continue
 
-            if self.is_trash(candidates):
+            if (
+                self.is_playable(candidates.difference(self.trash))
+                and hand[i].order in self.hat_clued_card_orders
+            ):
+                playable.append(hand[i].order)
                 continue
 
-            if self.is_playable(candidates.difference(self.trash)):
-                yoloable.append(hand[i].order)
+            if self.is_playable(candidates):
+                playable.append(hand[i].order)
 
         dupe_in_own_hand = []
         dupe_in_other_hand = []
@@ -979,9 +980,15 @@ class EncoderGameState(GameState):
         return {
             "playable": playable,
             "trash": trash,
-            "yoloable": yoloable,
             "dupe_in_own_hand": dupe_in_own_hand,
             "dupe_in_other_hand": dupe_in_other_hand,
             "dupe_in_other_hand_or_trash": dupe_in_other_hand_or_trash,
             "seen_in_other_hand": seen_in_other_hand,
         }
+
+    def write_note(self, order: int, note: str, candidates=None, append=True):
+        if order in self.trashy_orders:
+            super().write_note(order=order, note="[kt]", candidates=None, append=append)
+            return
+
+        super().write_note(order=order, note=note, candidates=candidates, append=append)

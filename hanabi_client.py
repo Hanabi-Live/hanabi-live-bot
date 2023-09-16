@@ -630,7 +630,6 @@ class HanabiClient:
 
     def encoder(self, state: EncoderGameState, table_id: int):
         # TODO: implement elim
-        # TODO: implement logic for other variants
         good_actions = {
             player_index: state.get_good_actions(player_index)
             for player_index in range(state.num_players)
@@ -640,28 +639,15 @@ class HanabiClient:
         for action_type, orders in good_actions.items():
             print(action_type, orders)
 
-        max_crits = 0
-        for player_index in range(state.num_players):
-            if player_index == state.our_player_index:
-                continue
-            num_crits = sum(
-                [state.is_critical_card(card) for card in state.hands[player_index]]
-            )
-            max_crits = max(max_crits, num_crits)
+        if state.cannot_play:
+            print(f"CANNOT PLAY! someone's crits > {state.num_cards_in_deck} cards")
 
-        cannot_play = (
-            max_crits > state.num_cards_in_deck and state.num_cards_in_deck > 0
-        )
-        if cannot_play:
-            print(f"CANNOT PLAY! {max_crits} crits > {state.num_cards_in_deck} cards")
-
-        if len(my_good_actions["playable"]) and not cannot_play:
+        if len(my_good_actions["playable"]) and not state.cannot_play:
             # sort playables by lowest possible rank of candidates
             sorted_playables = sorted(
                 my_good_actions["playable"],
                 key=lambda order: min([x[1] for x in state.get_candidates(order)]),
             )
-            num_crits_i_have = sum([state.is_critical(x) for x in state.our_candidates])
 
             # priority 0
             fk_orders = state.get_fully_known_card_orders(
@@ -674,7 +660,7 @@ class HanabiClient:
                     all_others_hc_cards = state.get_all_other_players_hat_clued_cards()
                     dire_circumstances = (
                         identity not in state.criticals
-                        and num_crits_i_have > state.num_cards_in_deck
+                        and state.our_num_crits > state.num_cards_in_deck
                     )
                     if dire_circumstances:
                         print(f"Would love to play {identity} but cannot")
@@ -718,61 +704,29 @@ class HanabiClient:
                 self.play(unique_playables[0], table_id)
                 return
 
-            # all the playables we have are duped in someone else's hand
-            # figure out where the duped card is and how to best resolve it
-            for playable_order in sorted_playables:
-                playable_candidates = state.get_candidates(playable_order)
-                if len(playable_candidates) >= 2:
-                    print("TOO MANY CANDIDATES TO WORRY ABOUT, PLAYING THIS")
-                    self.play(playable_order, table_id)
+            # priority 4
+            absolute_playables = {
+                order
+                for order in sorted_playables
+                if state.is_playable(state.get_candidates(order))
+            }
+            if len(absolute_playables):
+                print("PRIO 4")
+                self.play(absolute_playables[0], table_id)
+                return
+
+            # priority 5
+            highest_num_candidates = max(
+                [
+                    len(state.get_candidates(order))
+                    for order in my_good_actions["playable"]
+                ]
+            )
+            for order in sorted_playables:
+                if len(state.get_candidates(order)) == highest_num_candidates:
+                    print("PRIO 5")
+                    self.play(order, table_id)
                     return
-
-                suit_index, rank = list(playable_candidates)[0]
-                for player_index, hand in state.hands.items():
-                    if player_index == state.our_player_index:
-                        continue
-
-                    for i, card in enumerate(hand):
-                        if (suit_index, rank) != (card.suit_index, card.rank):
-                            continue
-
-                        candidates = state.all_candidates_list[player_index][i]
-                        candidates_minus_my_play = candidates.difference(
-                            {(suit_index, rank)}
-                        )
-                        if state.is_trash(candidates_minus_my_play):
-                            print("OTHER GUY WILL KNOW ITS TRASH AFTER I PLAY THIS")
-                            self.play(playable_order, table_id)
-                            return
-
-                        what_other_guy_sees = (
-                            state.get_all_other_players_hat_clued_cards(player_index)
-                        )
-                        unique_candidates_after_my_play = (
-                            candidates_minus_my_play.difference(what_other_guy_sees)
-                        )
-                        if not len(unique_candidates_after_my_play) or state.is_trash(
-                            unique_candidates_after_my_play
-                        ):
-                            print("OTHER GUY WILL KNOW ITS DUPED AFTER I PLAY THIS")
-                            self.play(playable_order, table_id)
-                            return
-
-            if state.pace <= state.num_players - 2:
-                print("PACE IS TOO LOW, NEED TO PLAY!!!")
-                self.play(sorted_playables[0], table_id)
-            elif state.clue_tokens >= 8:
-                print("AT 8 TOKENS, CAN't DISCARD!!!")
-                self.play(sorted_playables[0], table_id)
-            else:
-                print("NO DUPES WILL DEFINITELY RESOLVE, GDing this instead")
-                self.discard(sorted_playables[0], table_id)
-            return
-
-        cannot_yolo = (state.bombs > 1) and (state.pace > state.num_players - 3)
-        if len(my_good_actions["yoloable"]) and not cannot_yolo and not cannot_play:
-            self.play(my_good_actions["yoloable"][0], table_id)
-            return
 
         lnhcs = state.get_leftmost_non_hat_clued_cards()
         num_useful_cards = 0
@@ -844,20 +798,20 @@ class HanabiClient:
         if state.clue_tokens < 8:
             if len(my_good_actions["trash"]):
                 print("X TRASH")
-                self.discard(my_good_actions["trash"][0], table_id)
+                self.discard(my_good_actions["trash"][-1], table_id)
                 return
             if len(my_good_actions["dupe_in_own_hand"]):
                 print("X DUPE_IN_OWN_HAND")
-                self.discard(my_good_actions["dupe_in_own_hand"][0], table_id)
+                self.discard(my_good_actions["dupe_in_own_hand"][-1], table_id)
                 return
             if len(my_good_actions["dupe_in_other_hand"]):
                 print("X DUPE_IN_OTHER_HAND")
-                self.discard(my_good_actions["dupe_in_other_hand"][0], table_id)
+                self.discard(my_good_actions["dupe_in_other_hand"][-1], table_id)
                 return
             if len(my_good_actions["dupe_in_other_hand_or_trash"]):
                 print("X DUPE_IN_OTHER_HAND_OR_TRASH")
                 self.discard(
-                    my_good_actions["dupe_in_other_hand_or_trash"][0], table_id
+                    my_good_actions["dupe_in_other_hand_or_trash"][-1], table_id
                 )
                 return
 

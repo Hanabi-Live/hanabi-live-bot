@@ -131,3 +131,5 @@ dmypy.json
 # stuff i don't want to expose to the world
 *.txt
 config.json
+*.sh
+*.bat

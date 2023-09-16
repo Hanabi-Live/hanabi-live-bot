@@ -445,7 +445,7 @@ def get_candidates_list_str(
                             _char = "O"
                     output += _char
                 elif poss_list is not None and (i, rank) in poss_list[hand_order]:
-                    output += "x"
+                    output += "-"
                 else:
                     output += "."
 
@@ -582,6 +582,10 @@ class GameState:
     @property
     def our_possibilities(self) -> List[Set[Tuple[int, int]]]:
         return self.all_possibilities_list[self.our_player_index]
+
+    @property
+    def our_num_crits(self) -> int:
+        return sum([self.is_critical(candidates) for candidates in self.our_candidates])
 
     @property
     def num_1s_played(self) -> int:
