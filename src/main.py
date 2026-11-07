@@ -1,14 +1,8 @@
 #!/usr/bin/env python
 
-import sys
-
-# The "dotenv" module does not work in Python 2
-if sys.version_info < (3, 0):
-    printf("This script requires Python 3.x.")
-    sys.exit(1)
-
 # Imports (standard library)
 import os
+import sys
 
 # Imports (3rd-party)
 import dotenv
@@ -22,7 +16,10 @@ from util import printf
 # Authenticate, login to the WebSocket server, and run forever.
 def main():
     # Check to see if the ".env" file exists.
-    env_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), ".env")
+    # (It is located in the repository root, which is one directory above this
+    # file.)
+    project_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    env_path = os.path.join(project_root, ".env")
     if not os.path.exists(env_path):
         printf(
             'error: the ".env" file does not exist; copy the ".env_template" file to ".env" and edit the values accordingly'
@@ -30,9 +27,9 @@ def main():
         sys.exit(1)
 
     # Load environment variables from the ".env" file.
-    dotenv.load_dotenv()
+    dotenv.load_dotenv(env_path)
 
-    use_localhost = os.getenv("USE_LOCALHOST")
+    use_localhost = os.getenv("USE_LOCALHOST", "")
     if use_localhost == "":
         printf('error: "USE_LOCALHOST" is blank in the ".env" file')
         sys.exit(1)
@@ -46,12 +43,12 @@ def main():
         )
         sys.exit(1)
 
-    username = os.getenv("HANABI_USERNAME")
+    username = os.getenv("HANABI_USERNAME", "")
     if username == "":
         printf('error: "HANABI_USERNAME" is blank in the ".env" file')
         sys.exit(1)
 
-    password = os.getenv("HANABI_PASSWORD")
+    password = os.getenv("HANABI_PASSWORD", "")
     if password == "":
         printf('error: "HANABI_PASSWORD" is blank in the ".env" file')
         sys.exit(1)
@@ -69,7 +66,9 @@ def main():
         ws_protocol = "wss"
         host = "hanab.live"
     path = "/login"
-    ws_path = "/ws"
+    # The server rejects WebSocket connections that do not specify a client
+    # version. Like with the login request below, "bot" is accepted.
+    ws_path = "/ws?version=bot"
     url = protocol + "://" + host + path
     ws_url = ws_protocol + "://" + host + ws_path
     printf('Authenticating to "' + url + '" with a username of "' + username + '".')
@@ -90,16 +89,14 @@ def main():
         printf(resp.text)
         sys.exit(1)
 
-    # Scrape the cookie from the response.
-    cookie = ""
-    for header in resp.headers.items():
-        if header[0] == "Set-Cookie":
-            cookie = header[1]
-            break
-    if cookie == "":
-        printf("Failed to parse the cookie from the authentication response headers:")
+    # Get the session cookie from the response. (We cannot just copy the raw
+    # "Set-Cookie" header, since it contains attributes like "Path" and
+    # "HttpOnly" that are not valid in a "Cookie" request header.)
+    if len(resp.cookies) == 0:
+        printf("Failed to find a cookie in the authentication response headers:")
         printf(resp.headers)
         sys.exit(1)
+    cookie = "; ".join(name + "=" + value for name, value in resp.cookies.items())
 
     HanabiClient(ws_url, cookie)
 

@@ -5,12 +5,14 @@ from constants import MAX_CLUE_NUM
 # to be more specific. (For example, a card object should contain the positive
 # and negative clues that are "on" the card.)
 class GameState:
-    replaying_past_actions = True
-    clue_tokens = MAX_CLUE_NUM
-    player_names = []
-    our_player_index = -1
-    hands = []  # An array containing card objects (dictionaries).
-    play_stacks = []
-    discard_pile = []
-    turn = -1
-    current_player_index = -1
+    def __init__(self):
+        # These must be instance attributes (rather than class attributes) so
+        # that each game gets its own lists instead of sharing them.
+        self.clue_tokens = MAX_CLUE_NUM
+        self.player_names = []
+        self.our_player_index = -1
+        self.hands = []  # An array containing card objects (dictionaries).
+        self.play_stacks = []
+        self.discard_pile = []
+        self.turn = -1
+        self.current_player_index = -1

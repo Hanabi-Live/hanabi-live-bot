@@ -33,7 +33,7 @@ class HanabiClient:
         self.commandHandlers["init"] = self.init
         self.commandHandlers["gameAction"] = self.game_action
         self.commandHandlers["gameActionList"] = self.game_action_list
-        self.commandHandlers["databaseID"] = self.database_id
+        self.commandHandlers["finishOngoingGame"] = self.finish_ongoing_game
 
         # Start the WebSocket client.
         printf('Connecting to "' + url + '".')
@@ -43,7 +43,7 @@ class HanabiClient:
             on_message=lambda ws, message: self.websocket_message(ws, message),
             on_error=lambda ws, error: self.websocket_error(ws, error),
             on_open=lambda ws: self.websocket_open(ws),
-            on_close=lambda ws: self.websocket_close(ws),
+            on_close=lambda ws, close_status_code, close_msg: self.websocket_close(ws),
             cookie=cookie,
         )
         self.ws.run_forever()
@@ -57,16 +57,10 @@ class HanabiClient:
         # commandName {"fieldName":"value"}
         # For more information, see:
         # https://github.com/Zamiell/hanabi-live/blob/master/src/websocketMessage.go
-        result = message.split(" ", 1)  # Split it into two things
-        if len(result) != 1 and len(result) != 2:
-            printf("error: received an invalid WebSocket message:")
-            printf(message)
-            return
-
-        command = result[0]
+        command, _, json_data = message.partition(" ")
         try:
-            data = json.loads(result[1])
-        except:
+            data = json.loads(json_data)
+        except ValueError:
             printf(
                 'error: the JSON data for the command of "' + command + '" was invalid'
             )
@@ -112,7 +106,8 @@ class HanabiClient:
 
     def chat(self, data):
         # We only care about private messages.
-        if data["recipient"] != self.username:
+        # (Public chat messages do not have a "recipient" field.)
+        if data.get("recipient") != self.username:
             return
 
         # We only care about private messages that start with a forward slash.
@@ -140,7 +135,7 @@ class HanabiClient:
                 continue
 
             if data["who"] in table["players"]:
-                if len(table["players"]) == 6:
+                if len(table["players"]) >= table["maxPlayers"]:
                     msg = "Your game is full. Please make room for me before requesting that I join your game."
                     self.chat_reply(msg, data["who"])
                     return
@@ -168,7 +163,7 @@ class HanabiClient:
             self.table(data)
 
     def table_gone(self, data):
-        del self.tables[data["tableID"]]
+        self.tables.pop(data["tableID"], None)
 
     def table_start(self, data):
         # The server has told us that a game that we are in is starting. So,
@@ -197,6 +192,10 @@ class HanabiClient:
 
         state.player_names = data["playerNames"]
         state.our_player_index = data["ourPlayerIndex"]
+
+        # The server does not send a "turn" action at the start of the game, so
+        # we have to get the starting player from the game options.
+        state.current_player_index = data["options"]["startingPlayer"]
 
         # Initialize the hands for each player (an array of cards).
         for _ in range(len(state.player_names)):
@@ -232,7 +231,13 @@ class HanabiClient:
         # We just received a new action for an ongoing game.
         self.handle_action(data["action"], data["tableID"])
 
-        if state.current_player_index == state.our_player_index:
+        # A "turn" action is always the final action of a turn, so it is the
+        # signal that it might now be our turn. (Checking after every action
+        # could cause us to act twice.)
+        if (
+            data["action"]["type"] == "turn"
+            and state.current_player_index == state.our_player_index
+        ):
             self.decide_action(data["tableID"])
 
     def game_action_list(self, data):
@@ -274,16 +279,16 @@ class HanabiClient:
             )
 
         elif data["type"] == "play":
-            player_index = data["which"]["playerIndex"]
-            order = data["which"]["order"]
+            player_index = data["playerIndex"]
+            order = data["order"]
             card = self.remove_card_from_hand(state, player_index, order)
             if card is not None:
                 # TODO Add the card to the play stacks.
                 pass
 
         elif data["type"] == "discard":
-            player_index = data["which"]["playerIndex"]
-            order = data["which"]["order"]
+            player_index = data["playerIndex"]
+            order = data["order"]
             card = self.remove_card_from_hand(state, player_index, order)
             if card is not None:
                 # TODO Add the card to the discard stacks.
@@ -302,20 +307,22 @@ class HanabiClient:
             # "touched" by the clue so that we can keep track of the positive
             # and negative information "on" the card.
 
+        elif data["type"] == "status":
+            # The server sends the current amount of clue tokens after every
+            # turn, which is more reliable than tracking it ourselves.
+            state.clue_tokens = data["clues"]
+
         elif data["type"] == "turn":
             # A turn is comprised of one or more game actions (e.g. play +
             # draw). The turn action will be the final thing sent on a turn,
             # which also includes the index of the new current player.
-            # TODO: This action may be removed from the server in the future
-            # since the client is expected to calculate the turn on its own
-            # from the actions.
             state.turn = data["num"]
             state.current_player_index = data["currentPlayerIndex"]
 
-    def database_id(self, data):
+    def finish_ongoing_game(self, data):
         # Games are transformed into shared replays after they are completed.
-        # The server sends a "databaseID" message when the game has ended. Use
-        # this as a signal to leave the shared replay.
+        # The server sends a "finishOngoingGame" message when the game has
+        # ended. Use this as a signal to leave the shared replay.
         self.send(
             "tableUnattend",
             {
@@ -324,7 +331,7 @@ class HanabiClient:
         )
 
         # Delete the game state for the game to free up memory.
-        del self.games[data["tableID"]]
+        self.games.pop(data["tableID"], None)
 
     # ------------
     # AI functions
@@ -401,7 +408,7 @@ class HanabiClient:
                 card_index = i
         if card_index == -1:
             printf(
-                "error: unable to find card with order " + str(order) + " in"
+                "error: unable to find card with order " + str(order) + " in "
                 "the hand of player " + str(player_index)
             )
             return None
