@@ -11,13 +11,14 @@ An example reference bot for the [Hanab Live website](https://github.com/Zamiell
 - Clone the repository:
   - `git clone git@github.com:Hanabi-Live/hanabi-live-bot.git`
   - `cd hanabi-live-bot`
+- Install [uv](https://docs.astral.sh/uv/getting-started/installation/), if you do not have it already.
 - Install the dependencies:
-  - `pip install -r requirements.txt`
+  - `uv sync`
 - Set up environment variables:
   - `cp .env_template .env`
   - `vim .env`
 - Run it:
-  - `python src/main.py`
+  - `uv run src/main.py`
 - In a browser, log on to the website and start a new table.
 - In the pre-game chat window, send a private message to the bot in order to get it to join you:
   - `/msg [username] /join`
