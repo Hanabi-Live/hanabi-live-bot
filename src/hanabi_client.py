@@ -5,7 +5,7 @@ import json
 import websocket
 
 # Imports (local application)
-from constants import ACTION
+from constants import MAX_CLUE_NUM, MAX_RANK
 from game_state import GameState
 from util import printf
 
@@ -13,27 +13,34 @@ from util import printf
 class HanabiClient:
     def __init__(self, url, cookie):
         # Initialize all class variables.
-        self.commandHandlers = {}
+        self.event_handlers = {}
         self.tables = {}
         self.username = ""
         self.ws = None
         self.games = {}
 
-        # Initialize the website command handlers (for the lobby).
-        self.commandHandlers["welcome"] = self.welcome
-        self.commandHandlers["warning"] = self.warning
-        self.commandHandlers["error"] = self.error
-        self.commandHandlers["chat"] = self.chat
-        self.commandHandlers["table"] = self.table
-        self.commandHandlers["tableList"] = self.table_list
-        self.commandHandlers["tableGone"] = self.table_gone
-        self.commandHandlers["tableStart"] = self.table_start
+        # Every request has an ID that we choose. The server answers each
+        # request once, with a reply that repeats its ID. We keep a callback
+        # for the requests whose reply we need.
+        self.next_request_id = 1
+        self.reply_handlers = {}
 
-        # Initialize the website command handlers (for the game).
-        self.commandHandlers["init"] = self.init
-        self.commandHandlers["gameAction"] = self.game_action
-        self.commandHandlers["gameActionList"] = self.game_action_list
-        self.commandHandlers["finishOngoingGame"] = self.finish_ongoing_game
+        # Initialize the handlers of the events that the server sends on its
+        # own (for the lobby).
+        self.event_handlers["welcome"] = self.welcome
+        self.event_handlers["warning"] = self.notice
+        self.event_handlers["error"] = self.notice
+        self.event_handlers["chat"] = self.chat
+        self.event_handlers["table"] = self.table
+        self.event_handlers["tableList"] = self.table_list
+        self.event_handlers["tableRemoved"] = self.table_removed
+        self.event_handlers["tableJoined"] = self.table_joined
+
+        # Initialize the handlers of the events that the server sends on its
+        # own (for the game).
+        self.event_handlers["gameState"] = self.game_state
+        self.event_handlers["gameEvent"] = self.game_event
+        self.event_handlers["gameFinished"] = self.game_finished
 
         # Start the WebSocket client.
         printf('Connecting to "' + url + '".')
@@ -53,28 +60,53 @@ class HanabiClient:
     # ------------------
 
     def websocket_message(self, ws, message):
-        # WebSocket messages from the server come in the format of:
-        # commandName {"fieldName":"value"}
+        # Each WebSocket message from the server is one JSON object. An event
+        # that the server sends on its own looks like:
+        # {"event": "table", "data": {...}}
+        # A reply to one of our requests looks like:
+        # {"reply": 1, "data": {...}} or {"reply": 1, "error": {...}}
         # For more information, see:
-        # https://github.com/Zamiell/hanabi-live/blob/master/src/websocketMessage.go
-        command, _, json_data = message.partition(" ")
+        # https://github.com/Hanabi-Live/hanabi-live/blob/main/packages/data/src/functions/frames.ts
         try:
-            data = json.loads(json_data)
+            frame = json.loads(message)
         except ValueError:
-            printf(
-                'error: the JSON data for the command of "' + command + '" was invalid'
-            )
+            printf("error: a message from the server was not valid JSON")
             return
 
-        if command in self.commandHandlers:
-            printf('debug: got command "' + command + '"')
-            try:
-                self.commandHandlers[command](data)
-            except Exception as e:
-                printf('error: command handler for "' + command + '" failed:', e)
-                return
+        if "event" in frame:
+            self.handle_event(frame["event"], frame.get("data"))
+        elif "reply" in frame:
+            self.handle_reply(frame["reply"], frame.get("data"), frame.get("error"))
         else:
-            printf('debug: ignoring command "' + command + '"')
+            printf("error: a message from the server was not an event or a reply")
+
+    def handle_event(self, event, data):
+        if event not in self.event_handlers:
+            printf('debug: ignoring event "' + event + '"')
+            return
+
+        printf('debug: got event "' + event + '"')
+        try:
+            self.event_handlers[event](data)
+        except Exception as e:
+            printf('error: event handler for "' + event + '" failed:', e)
+
+    def handle_reply(self, request_id, data, error):
+        handler = self.reply_handlers.pop(request_id, None)
+
+        if error is not None:
+            # The server refused our request.
+            printf("error: request " + str(request_id) + " failed:", error)
+            return
+
+        if handler is not None:
+            try:
+                handler(data)
+            except Exception as e:
+                printf(
+                    "error: reply handler for request " + str(request_id) + " failed:",
+                    e,
+                )
 
     def websocket_error(self, ws, error):
         printf("Encountered a WebSocket error:", error)
@@ -85,117 +117,135 @@ class HanabiClient:
     def websocket_open(self, ws):
         printf("Successfully established WebSocket connection.")
 
-    # --------------------------------
-    # Website Command Handlers (Lobby)
-    # --------------------------------
+    # ----------------------
+    # Event Handlers (Lobby)
+    # ----------------------
 
     def welcome(self, data):
-        # The "welcome" message is the first message that the server sends us
+        # The "welcome" event is the first message that the server sends us
         # once we have established a connection. It contains our username,
         # settings, and so forth.
         self.username = data["username"]
 
-    def error(self, data):
+        # If we were disconnected in the middle of a game, return to it.
+        for table_id in data["playingAtTables"]:
+            self.send("tableReattend", {"tableId": table_id})
+
+    def notice(self, data):
         # Either we have done something wrong, or something has gone wrong on
         # the server.
-        printf(data)
-
-    def warning(self, data):
-        # We have done something wrong.
-        printf(data)
+        printf(data["message"])
 
     def chat(self, data):
-        # We only care about private messages.
-        # (Public chat messages do not have a "recipient" field.)
-        if data.get("recipient") != self.username:
+        # We only care about private messages to us.
+        kind = data["kind"]
+        if kind["type"] != "private" or kind["recipient"] != self.username:
             return
+
+        # We only care about private messages from users. (The server can also
+        # send them.)
+        author = kind["author"]
+        if author["type"] != "user":
+            return
+        who = author["username"]
 
         # We only care about private messages that start with a forward slash.
-        if not data["msg"].startswith("/"):
+        text = data["text"]
+        if not text.startswith("/"):
             return
-        data["msg"] = data["msg"][1:]  # Remove the slash.
+        text = text[1:]  # Remove the slash.
 
         # We want to split it into two things.
-        result = data["msg"].split(" ", 1)
+        result = text.split(" ", 1)
         command = result[0]
 
         if command == "join":
-            self.chat_join(data)
+            self.chat_join(who)
         else:
             msg = "That is not a valid command."
-            self.chat_reply(msg, data["who"])
+            self.chat_reply(msg, who)
 
-    def chat_join(self, data):
+    def chat_join(self, who):
         # Someone sent a private message to the bot and requested that we join
         # their game. Find the table that the current user is currently in.
         table_id = None
         for table in self.tables.values():
             # Ignore games that have already started (and shared replays).
-            if table["running"]:
+            if table["phase"]["type"] != "pregame":
                 continue
 
-            if data["who"] in table["players"]:
-                if len(table["players"]) >= table["maxPlayers"]:
+            if who in table["playerNames"]:
+                if len(table["playerNames"]) >= table["settings"]["maxPlayers"]:
                     msg = "Your game is full. Please make room for me before requesting that I join your game."
-                    self.chat_reply(msg, data["who"])
+                    self.chat_reply(msg, who)
                     return
 
-                table_id = table["id"]
+                table_id = table["tableId"]
                 break
 
         if table_id is None:
             msg = "Please create a table first before requesting that I join your game."
-            self.chat_reply(msg, data["who"])
+            self.chat_reply(msg, who)
             return
 
-        self.send(
-            "tableJoin",
-            {
-                "tableID": table_id,
-            },
-        )
+        self.send("tableJoin", {"tableId": table_id})
 
     def table(self, data):
-        self.tables[data["id"]] = data
+        self.tables[data["tableId"]] = data
 
-    def table_list(self, data_list):
-        for data in data_list:
-            self.table(data)
+    def table_list(self, data):
+        for table in data["tables"]:
+            self.table(table)
 
-    def table_gone(self, data):
-        self.tables.pop(data["tableID"], None)
+    def table_removed(self, data):
+        self.tables.pop(data["tableId"], None)
 
-    def table_start(self, data):
-        # The server has told us that a game that we are in is starting. So,
-        # the next step is to request some high-level information about the
-        # game (e.g. number of players). The server will respond with an "init"
-        # command.
+    def table_joined(self, data):
+        # The server has put us on the screen of a table: its pregame, its game
+        # (which may have just started), or the replay of its finished game.
+        table_id = data["tableId"]
+        stage = data["stage"]
+
+        if stage == "replay":
+            # We have no use for replays.
+            self.send("tableUnattend", {"tableId": table_id})
+            return
+
+        if stage not in ("justStarted", "playing"):
+            return
+
+        # The next step is to request some high-level information about the
+        # game (e.g. number of players). The server will answer with the
+        # game's setup.
         self.send(
-            "getGameInfo1",
-            {
-                "tableID": data["tableID"],
-            },
+            "gameInitLoad",
+            {"tableId": table_id},
+            lambda game_init: self.game_init(table_id, game_init),
         )
 
-    # -------------------------------
-    # Website Command Handlers (Game)
-    # -------------------------------
+    # ---------------------
+    # Event Handlers (Game)
+    # ---------------------
 
-    def init(self, data):
+    def game_init(self, table_id, data):
         # At the beginning of the game, the server sends us some high-level
         # data about the game, including the names and ordering of the players
         # at the table.
+        mode = data["mode"]
+        if mode["type"] != "playing":
+            # We are not a player of this game.
+            return
 
         # Make a new game state and store it on the "games" dictionary.
         state = GameState()
-        self.games[data["tableID"]] = state
+        self.games[table_id] = state
 
         state.player_names = data["playerNames"]
-        state.our_player_index = data["ourPlayerIndex"]
+        state.our_player_index = mode["ourPlayerIndex"]
 
-        # The server does not send a "turn" action at the start of the game, so
-        # we have to get the starting player from the game options.
-        state.current_player_index = data["options"]["startingPlayer"]
+        # The first player always starts, and the server sends no "turn" event
+        # before the first turn.
+        state.current_player_index = 0
 
         # Initialize the hands for each player (an array of cards).
         for _ in range(len(state.player_names)):
@@ -205,9 +255,9 @@ class HanabiClient:
         """
         This is hard coded to 5 because there 5 suits in a no variant game
         The website supports variants that have 3, 4, and 6 suits
-        TODO This code should compare "data['variant']" to the "variants.json"
-        file in order to determine the correct amount of suits
-        https://raw.githubusercontent.com/Zamiell/hanabi-live/master/public/js/src/data/variants.json
+        TODO This code should compare "data['options']['variantId']" to the
+        "variants.json" file in order to determine the correct amount of suits
+        https://raw.githubusercontent.com/Hanabi-Live/hanabi-live/main/packages/game/src/json/variants.json
         """
         num_suits = 5
         for _ in range(num_suits):
@@ -216,65 +266,64 @@ class HanabiClient:
         # At this point, the JavaScript client would have enough information to
         # load and display the game UI. For our purposes, we do not need to
         # load a UI, so we can just jump directly to the next step. Now, we
-        # request the specific actions that have taken place thus far in the
-        # game (which will come in a "gameActionList").
-        self.send(
-            "getGameInfo2",
-            {
-                "tableID": data["tableID"],
-            },
-        )
+        # request the events that have taken place thus far in the game (which
+        # will come in a "gameState" event).
+        self.send("gameStateLoad", {"tableId": table_id})
 
-    def game_action(self, data):
-        state = self.games[data["tableID"]]
+    def game_state(self, data):
+        table_id = data["tableId"]
+        state = self.games.get(table_id)
+        if state is None:
+            return
 
-        # We just received a new action for an ongoing game.
-        self.handle_action(data["action"], data["tableID"])
-
-        # A "turn" action is always the final action of a turn, so it is the
-        # signal that it might now be our turn. (Checking after every action
-        # could cause us to act twice.)
-        if (
-            data["action"]["type"] == "turn"
-            and state.current_player_index == state.our_player_index
-        ):
-            self.decide_action(data["tableID"])
-
-    def game_action_list(self, data):
-        state = self.games[data["tableID"]]
-
-        # We just received a list of all of the actions that have occurred thus
-        # far in the game.
-        for action in data["list"]:
-            self.handle_action(action, data["tableID"])
-
-        if state.current_player_index == state.our_player_index:
-            self.decide_action(data["tableID"])
+        # We just received all of the events that have occurred thus far in
+        # the game.
+        for event in data["events"]:
+            self.handle_game_event(event, table_id)
 
         # Let the server know that we have finished "loading the UI" (so that
         # our name does not appear as red / disconnected).
-        self.send(
-            "loaded",
-            {
-                "tableID": data["tableID"],
-            },
-        )
+        self.send("gameLoaded", {"tableId": table_id})
 
-    def handle_action(self, data, table_id):
+        if state.current_player_index == state.our_player_index:
+            self.decide_action(table_id)
+
+    def game_event(self, data):
+        table_id = data["tableId"]
+        state = self.games.get(table_id)
+        if state is None:
+            return
+
+        # We just received a new event for an ongoing game.
+        event = data["event"]
+        self.handle_game_event(event, table_id)
+
+        # A "turn" event is always the final event of a turn, so it is the
+        # signal that it might now be our turn. (Checking after every event
+        # could cause us to act twice.)
+        if (
+            event["type"] == "turn"
+            and state.current_player_index == state.our_player_index
+        ):
+            self.decide_action(table_id)
+
+    def handle_game_event(self, data, table_id):
         printf(
-            'debug: got a game action of "%s" for table %d' % (data["type"], table_id)
+            'debug: got a game event of "%s" for table %d' % (data["type"], table_id)
         )
 
         state = self.games[table_id]
 
         if data["type"] == "draw":
-            # Add the newly drawn card to the player's hand.
+            # Add the newly drawn card to the player's hand. We cannot see the
+            # identity of our own cards.
+            identity = data.get("identity", {})
             hand = state.hands[data["playerIndex"]]
             hand.append(
                 {
                     "order": data["order"],
-                    "suit_index": data["suitIndex"],
-                    "rank": data["rank"],
+                    "suit_index": identity.get("suitIndex", -1),
+                    "rank": identity.get("rank", -1),
                 }
             )
 
@@ -286,6 +335,11 @@ class HanabiClient:
                 # TODO Add the card to the play stacks.
                 pass
 
+            # Playing the last card of a suit gives a clue back.
+            identity = data.get("identity", {})
+            if identity.get("rank") == MAX_RANK and state.clue_tokens < MAX_CLUE_NUM:
+                state.clue_tokens += 1
+
         elif data["type"] == "discard":
             player_index = data["playerIndex"]
             order = data["order"]
@@ -294,10 +348,18 @@ class HanabiClient:
                 # TODO Add the card to the discard stacks.
                 pass
 
-            # Discarding adds a clue. But misplays are represented as discards,
-            # and misplays do not grant a clue.
-            if not data["failed"]:
-                state.clue_tokens += 1
+            # Discarding gives a clue back.
+            state.clue_tokens += 1
+
+        elif data["type"] == "misplay":
+            # A play that fails discards the card and adds a strike, but does
+            # not give a clue back.
+            player_index = data["playerIndex"]
+            order = data["order"]
+            card = self.remove_card_from_hand(state, player_index, order)
+            if card is not None:
+                # TODO Add the card to the discard stacks.
+                pass
 
         elif data["type"] == "clue":
             # Each clue costs one clue token.
@@ -307,31 +369,22 @@ class HanabiClient:
             # "touched" by the clue so that we can keep track of the positive
             # and negative information "on" the card.
 
-        elif data["type"] == "status":
-            # The server sends the current amount of clue tokens after every
-            # turn, which is more reliable than tracking it ourselves.
-            state.clue_tokens = data["clues"]
-
         elif data["type"] == "turn":
-            # A turn is comprised of one or more game actions (e.g. play +
-            # draw). The turn action will be the final thing sent on a turn,
-            # which also includes the index of the new current player.
-            state.turn = data["num"]
-            state.current_player_index = data["currentPlayerIndex"]
+            # A turn is comprised of one or more game events (e.g. play +
+            # draw). The turn event will be the final thing sent on a turn,
+            # which also includes the index of the new current player. (It has
+            # no current player once the game has ended.)
+            state.turn = data["turn"]
+            state.current_player_index = data.get("currentPlayerIndex", -1)
 
-    def finish_ongoing_game(self, data):
+    def game_finished(self, data):
         # Games are transformed into shared replays after they are completed.
-        # The server sends a "finishOngoingGame" message when the game has
-        # ended. Use this as a signal to leave the shared replay.
-        self.send(
-            "tableUnattend",
-            {
-                "tableID": data["tableID"],
-            },
-        )
+        # The server sends a "gameFinished" event when the game has ended. Use
+        # this as a signal to leave the shared replay.
+        self.send("tableUnattend", {"tableId": data["tableId"]})
 
         # Delete the game state for the game to free up memory.
-        self.games.pop(data["tableID"], None)
+        self.games.pop(data["tableId"], None)
 
     # ------------
     # AI functions
@@ -341,7 +394,7 @@ class HanabiClient:
         state = self.games[table_id]
 
         # The server expects to be told about actions in the following format:
-        # https://github.com/Zamiell/hanabi-live/blob/master/src/command_action.go
+        # https://github.com/Hanabi-Live/hanabi-live/blob/main/server/protocol/src/replay.rs
 
         # Decide what to do.
         if state.clue_tokens > 0:
@@ -358,46 +411,35 @@ class HanabiClient:
             target_hand = state.hands[target_index]
             slot_1_card = target_hand[-1]
 
-            self.send(
-                "action",
-                {
-                    "tableID": table_id,
-                    "type": ACTION.RANK_CLUE,
-                    "target": target_index,
-                    "value": slot_1_card["rank"],
-                },
-            )
+            action = {
+                "type": "clue",
+                "receiverIndex": target_index,
+                "clue": {"type": "rank", "rank": slot_1_card["rank"]},
+            }
         else:
             # There are no clues available, so discard our oldest card.
             oldest_card = state.hands[state.our_player_index][0]
-            self.send(
-                "action",
-                {
-                    "tableID": table_id,
-                    "type": ACTION.DISCARD,
-                    "target": oldest_card["order"],
-                },
-            )
+            action = {"type": "discard", "order": oldest_card["order"]}
+
+        self.send("playerAction", {"tableId": table_id, "action": action})
 
     # -----------
     # Subroutines
     # -----------
 
     def chat_reply(self, message, recipient):
-        self.send(
-            "chatPM",
-            {
-                "msg": message,
-                "recipient": recipient,
-                "room": "lobby",
-            },
-        )
+        self.send("chatPm", {"text": message, "recipient": recipient})
 
-    def send(self, command, data):
-        if not isinstance(data, dict):
-            data = {}
-        self.ws.send(command + " " + json.dumps(data))
-        printf('debug: sent command "' + command + '"')
+    def send(self, request, data, on_reply=None):
+        # Each request is one JSON object with an ID that we choose. The server
+        # answers it with a reply that repeats the ID.
+        request_id = self.next_request_id
+        self.next_request_id += 1
+        if on_reply is not None:
+            self.reply_handlers[request_id] = on_reply
+
+        self.ws.send(json.dumps({"id": request_id, "request": request, "data": data}))
+        printf('debug: sent request "' + request + '"')
 
     def remove_card_from_hand(self, state, player_index, order):
         hand = state.hands[player_index]

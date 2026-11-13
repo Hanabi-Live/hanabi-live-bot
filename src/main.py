@@ -66,9 +66,8 @@ def main():
         ws_protocol = "wss"
         host = "hanab.live"
     path = "/login"
-    # The server rejects WebSocket connections that do not specify a client
-    # version. Like with the login request below, "bot" is accepted.
-    ws_path = "/ws?version=bot"
+    # Tell the server that we are a bot, as in the login request below.
+    ws_path = "/ws?client=bot"
     url = protocol + "://" + host + path
     ws_url = ws_protocol + "://" + host + ws_path
     printf('Authenticating to "' + url + '" with a username of "' + username + '".')
@@ -77,9 +76,9 @@ def main():
         {
             "username": username,
             "password": password,
-            # This is normally supposed to be the version of the JavaScript
-            # client, but the server will also accept "bot" as a valid version.
-            "version": "bot",
+            # This marks the account as a bot, which other players see. A bot
+            # can also play at several tables at once.
+            "client": "bot",
         },
     )
 
