@@ -294,18 +294,19 @@ class HanabiClient:
         if state is None:
             return
 
-        # We just received a new event for an ongoing game.
-        event = data["event"]
-        self.handle_game_event(event, table_id)
+        # We just received the events of one move in an ongoing game, such as
+        # a play, the draw after it, and the next turn.
+        for event in data["events"]:
+            self.handle_game_event(event, table_id)
 
-        # A "turn" event is always the final event of a turn, so it is the
-        # signal that it might now be our turn. (Checking after every event
-        # could cause us to act twice.)
-        if (
-            event["type"] == "turn"
-            and state.current_player_index == state.our_player_index
-        ):
-            self.decide_action(table_id)
+            # A "turn" event is always the final event of a turn, so it is the
+            # signal that it might now be our turn. (Checking after every event
+            # could cause us to act twice.)
+            if (
+                event["type"] == "turn"
+                and state.current_player_index == state.our_player_index
+            ):
+                self.decide_action(table_id)
 
     def handle_game_event(self, data, table_id):
         printf(

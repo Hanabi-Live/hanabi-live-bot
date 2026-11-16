@@ -79,6 +79,9 @@ def main():
             # This marks the account as a bot, which other players see. A bot
             # can also play at several tables at once.
             "client": "bot",
+            # Create the account if it does not exist yet. An existing account
+            # logs in as usual.
+            "createAccount": "true",
         },
     )
 
