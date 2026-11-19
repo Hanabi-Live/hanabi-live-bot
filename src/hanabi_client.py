@@ -32,7 +32,6 @@ class HanabiClient:
         self.event_handlers["error"] = self.notice
         self.event_handlers["chat"] = self.chat
         self.event_handlers["table"] = self.table
-        self.event_handlers["tableList"] = self.table_list
         self.event_handlers["tableRemoved"] = self.table_removed
         self.event_handlers["tableJoined"] = self.table_joined
 
@@ -127,6 +126,10 @@ class HanabiClient:
         # settings, and so forth.
         self.username = data["username"]
 
+        # It also lists the tables in the lobby. The "table" and
+        # "tableRemoved" events change the list after that.
+        self.tables = {table["tableId"]: table for table in data["tables"]}
+
         # If we were disconnected in the middle of a game, return to it.
         for table_id in data["playingAtTables"]:
             self.send("tableReattend", {"tableId": table_id})
@@ -192,10 +195,6 @@ class HanabiClient:
 
     def table(self, data):
         self.tables[data["tableId"]] = data
-
-    def table_list(self, data):
-        for table in data["tables"]:
-            self.table(table)
 
     def table_removed(self, data):
         self.tables.pop(data["tableId"], None)
