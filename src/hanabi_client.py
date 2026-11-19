@@ -1,5 +1,6 @@
 # Imports (standard library)
 import json
+import logging
 
 # Imports (3rd-party)
 import websocket
@@ -8,6 +9,9 @@ import websocket
 from constants import MAX_CLUE_NUM, MAX_RANK
 from game_state import GameState
 from util import printf
+
+# A handler that fails is logged with its traceback, and the bot keeps running.
+log = logging.getLogger(__name__)
 
 
 class HanabiClient:
@@ -87,8 +91,8 @@ class HanabiClient:
         printf('debug: got event "' + event + '"')
         try:
             self.event_handlers[event](data)
-        except Exception as e:
-            printf('error: event handler for "' + event + '" failed:', e)
+        except Exception:
+            log.exception('event handler for "%s" failed', event)
 
     def handle_reply(self, request_id, data, error):
         handler = self.reply_handlers.pop(request_id, None)
@@ -101,11 +105,8 @@ class HanabiClient:
         if handler is not None:
             try:
                 handler(data)
-            except Exception as e:
-                printf(
-                    "error: reply handler for request " + str(request_id) + " failed:",
-                    e,
-                )
+            except Exception:
+                log.exception("reply handler for request %s failed", request_id)
 
     def websocket_error(self, ws, error):
         printf("Encountered a WebSocket error:", error)
@@ -308,9 +309,8 @@ class HanabiClient:
                 self.decide_action(table_id)
 
     def handle_game_event(self, data, table_id):
-        printf(
-            'debug: got a game event of "%s" for table %d' % (data["type"], table_id)
-        )
+        event_type = data["type"]
+        printf(f'debug: got a game event of "{event_type}" for table {table_id}')
 
         state = self.games[table_id]
 
